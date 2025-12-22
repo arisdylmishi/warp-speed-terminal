@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from textblob import TextBlob
 
 # ==========================================
@@ -20,15 +20,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Dark Mode & Terminal Styling
+# Professional Dark Mode Styling
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* General Fonts */
-        h1, h2, h3, h4 { font-family: 'Helvetica Neue', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+        /* Fonts */
+        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
         
         /* Buttons */
         .stButton>button {
@@ -37,22 +37,27 @@ st.markdown("""
             font-weight: bold;
             height: 3em;
             text-transform: uppercase;
+            border: 1px solid #333;
         }
         
         /* Metrics Styling */
         div[data-testid="stMetricValue"] {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: #00FFCC; /* Neon Cyan */
+            font-family: 'Courier New', monospace;
         }
         div[data-testid="stMetricLabel"] {
             font-size: 0.9rem;
-            color: #888;
+            color: #aaa;
         }
+        
+        /* Tables */
+        .stDataFrame { border: 1px solid #333; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (MATH, AI, ORACLE) ---
+# --- 2. ADVANCED LOGIC (PORTED FROM TKINTER) ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -80,11 +85,9 @@ def calculate_indicators(hist):
     return hist
 
 def analyze_sentiment(news_items):
+    if not news_items: return "NEUTRAL", 0
     score = 0
     count = 0
-    # Safe analysis
-    if not news_items: return "NEUTRAL", 0
-    
     for item in news_items:
         title = item.get('title', '')
         if not title: continue
@@ -101,7 +104,7 @@ def analyze_sentiment(news_items):
     return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm"""
+    """The Oracle Ghost Algorithm (Exact Logic)"""
     if len(hist_series) < (lookback * 4): return None
     
     current_pattern = hist_series.iloc[-lookback:].values
@@ -113,7 +116,7 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
     best_idx = -1
     search_range = len(hist_series) - lookback - projection - 1
     
-    for i in range(0, search_range, 5): 
+    for i in range(0, search_range, 2): 
         candidate = hist_series.iloc[i : i+lookback].values
         if candidate.max() == candidate.min(): continue
         cand_norm = (candidate - candidate.min()) / (candidate.max() - candidate.min())
@@ -124,12 +127,23 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
                 best_idx = i
         except: continue
 
-    if best_score > 0.70:
+    if best_score > 0.75:
         ghost = hist_series.iloc[best_idx : best_idx + lookback + projection].copy()
         scale_factor = hist_series.iloc[-1] / ghost.iloc[lookback-1]
         ghost_future = ghost.iloc[lookback:] * scale_factor
         return ghost_future
     return None
+
+def calculate_fibonacci(hist):
+    high = hist['High'].max()
+    low = hist['Low'].min()
+    diff = high - low
+    return {
+        0.236: high - (diff * 0.236),
+        0.382: high - (diff * 0.382),
+        0.5: high - (diff * 0.5),
+        0.618: high - (diff * 0.618)
+    }
 
 # ==========================================
 # --- 3. DATABASE (LOGIN SYSTEM) ---
@@ -228,7 +242,7 @@ if not st.session_state['logged_in']:
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
             <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
-            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence.</p>
+            <p style='font-size: 24px; color: #aaa;'>The Ultimate Stock Market Intelligence System</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -314,7 +328,9 @@ if not st.session_state['logged_in']:
     for c, img, cap in zip(cols, imgs, caps):
         with c:
             try: st.image(img, caption=cap, use_container_width=True) 
-            except: st.info(f"[{cap} Preview]")
+            except: st.info(f"[{cap} Preview - File not found: {img}]")
+            
+    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
 # --- 6. VIEW: PAYWALL ---
@@ -332,6 +348,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], use_container_width=True)
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], use_container_width=True)
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
+    
+    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
@@ -343,26 +361,44 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
+        st.success("SYSTEM ONLINE 🟢")
+        st.markdown("---")
+        st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
+        st.markdown("---")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
 
-    # --- MACRO BAR ---
-    try:
-        m_data = yf.download(["^VIX", "^TNX", "BTC-USD", "CL=F"], period="2d", progress=False)['Close']
-        if not m_data.empty:
-            last = m_data.iloc[-1]
-            prev = m_data.iloc[-2]
-            cols = st.columns(4)
+    # --- MACRO BAR (Robust Error Handling) ---
+    with st.container():
+        try:
+            macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
+            m_data = yf.download(macro_ticks, period="5d", progress=False)['Close']
+            
+            mc1, mc2, mc3, mc4 = st.columns(4)
             names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
-            for idx, (sym, name) in enumerate(names.items()):
-                try:
-                    val = last[sym]
-                    chg = val - prev[sym]
-                    cols[idx].metric(name, f"{val:.2f}", f"{chg:.2f}")
-                except: pass
-    except: pass
+            
+            if not m_data.empty and len(m_data) > 1:
+                last_row = m_data.iloc[-1]
+                prev_row = m_data.iloc[-2]
+                
+                for idx, (sym, name) in enumerate(names.items()):
+                    val = last_row.get(sym, np.nan)
+                    prev_val = prev_row.get(sym, np.nan)
+                    
+                    if pd.isna(val) or pd.isna(prev_val) or prev_val == 0:
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, "N/A", "N/A")
+                    else:
+                        chg = ((val - prev_val) / prev_val) * 100
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, f"{val:.2f}", f"{chg:.2f}%")
+            else:
+                st.caption("Macro data unavailable (Market Closed/API Limit)")
+        except Exception as e: 
+            st.caption(f"Macro Data Error: {str(e)}")
+            
     st.divider()
 
-    # --- SCANNER ENGINE (Fixed Caching Error) ---
+    # --- SCANNER ENGINE (Fixed Caching & Logic) ---
     @st.cache_data(ttl=300)
     def scan_market(tickers):
         results = []
@@ -372,7 +408,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for t in tickers:
             try:
-                df = data[t] if len(tickers) > 1 else data
+                # Handle single vs multi ticker
+                if len(tickers) > 1:
+                    if t not in data.columns.levels[0]: continue
+                    df = data[t].copy()
+                else:
+                    df = data.copy()
+                
                 if df.empty or len(df) < 50: continue
                 
                 # Indicators
@@ -382,7 +424,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 chg = ((curr - prev)/prev)*100
                 rsi = df['RSI'].iloc[-1]
                 
-                # Logic
+                # Verdict Logic (From Tkinter)
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
                 ma200 = df['Close'].rolling(200).mean().iloc[-1]
                 
@@ -391,7 +433,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if curr < ma50 or rsi > 70: verdict = "SELL"
                 if rsi < 30: verdict = "STRONG BUY"
                 
-                # Sniper Score & Extra Metrics
+                # Sniper Score (From Tkinter)
                 score = 50
                 if verdict == "BUY": score += 20
                 if rsi < 30: score += 20
@@ -415,7 +457,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 news = yf.Ticker(t).news
                 sent, sent_score = analyze_sentiment(news)
                 
-                # We remove 'YF_Obj' to prevent caching errors
                 results.append({
                     "Ticker": t, 
                     "Price": curr, 
@@ -468,16 +509,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         # 2. ACTIONS
         c_act1, c_act2 = st.columns(2)
         with c_act1:
-            if st.button("Show Correlation Matrix"):
-                prices = {d['Ticker']: d['History']['Close'] for d in st.session_state['data']}
-                if len(prices) > 1:
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    sns.heatmap(pd.DataFrame(prices).corr(), annot=True, cmap='coolwarm', ax=ax)
-                    st.pyplot(fig)
-                else: st.warning("Need >1 asset for matrix.")
-        with c_act2:
             csv = df_view.to_csv(index=False).encode('utf-8')
-            st.download_button("Export CSV", csv, "warp_scan.csv", "text/csv")
+            st.download_button("📥 EXPORT DATA TO CSV", csv, "warp_scan.csv", "text/csv", use_container_width=True)
 
         # 3. DEEP DIVE
         st.divider()
@@ -487,36 +520,35 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS", "NEWS AI", "RISK"])
         
-        with t1: # Charting
+        with t1: # PLOTLY CHART (Replacing Matplotlib for better UI)
             hist = target['History']
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
             
-            # Price & BB
-            ax1.plot(hist.index, hist['Close'], label='Price', color='white')
-            ax1.plot(hist.index, hist['UpperBB'], color='cyan', alpha=0.3)
-            ax1.plot(hist.index, hist['LowerBB'], color='cyan', alpha=0.3)
-            ax1.fill_between(hist.index, hist['UpperBB'], hist['LowerBB'], color='cyan', alpha=0.05)
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                                vertical_spacing=0.03, row_heights=[0.7, 0.3])
+
+            # Candlestick
+            fig.add_trace(go.Candlestick(x=hist.index,
+                            open=hist['Open'], high=hist['High'],
+                            low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
             
-            # ORACLE GHOST
+            # Bollinger
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
+
+            # Oracle Ghost
             ghost = find_oracle_pattern(hist['Close'])
             if ghost is not None:
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
-                ax1.plot(future_dates, ghost, label='Oracle Ghost', color='magenta', linestyle='--')
-            
-            ax1.set_facecolor('#0e1117')
-            ax2.set_facecolor('#0e1117')
-            fig.patch.set_facecolor('#0e1117')
-            ax1.tick_params(colors='white')
-            ax2.tick_params(colors='white')
-            
+                fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash'), name='Oracle Ghost'), row=1, col=1)
+
             # MACD
-            ax2.plot(hist.index, hist['MACD'], color='cyan', label='MACD')
-            ax2.plot(hist.index, hist['Signal'], color='red', label='Signal')
-            ax2.bar(hist.index, hist['MACD'] - hist['Signal'], color='gray', alpha=0.3)
-            
-            ax1.legend()
-            st.pyplot(fig)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
+            fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
+
+            fig.update_layout(height=600, template="plotly_dark", xaxis_rangeslider_visible=False)
+            st.plotly_chart(fig, use_container_width=True)
             
         with t2: # Fundamentals
             i = target['Info']
@@ -545,7 +577,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
-            # Re-fetch object here to avoid caching errors
             try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
             except: st.write("Data hidden")
 
