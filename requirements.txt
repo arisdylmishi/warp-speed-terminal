@@ -6,3 +6,4 @@ matplotlib
 seaborn
 textblob
 requests
+plotly
