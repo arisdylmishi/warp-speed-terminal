@@ -429,7 +429,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V7.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V8.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -473,8 +473,9 @@ if not st.session_state['logged_in']:
         * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
-        
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>DESKTOP TERMINAL & <span class='coming-soon'>APP COMING SOON</span></h2><br>", unsafe_allow_html=True)
+    
+    # --- SCREENSHOTS WITH SNEAK PEEK BADGE ---
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
     imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
@@ -486,27 +487,6 @@ if not st.session_state['logged_in']:
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
-# --- 6. VIEW: PAYWALL ---
-# ==========================================
-elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
-    st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
-    links = {
-        "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
-        "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
-        "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
-        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
-    }
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch")
-    with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], width="stretch")
-    with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
-    with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
-    
-    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
-    st.divider()
-    if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
-
-# ==========================================
 # --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
@@ -514,7 +494,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v7.2 (Ultimate)")
+        st.caption("v8.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -623,18 +603,17 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # NEWS HANDLING (THE FIX FOR LINKS & EMPTY LISTS)
-                try: 
-                    raw_news = stock.news
-                    if not raw_news: raise ValueError("Empty news")
-                except: 
-                    # FORCE MANUAL LINKS if API fails
-                    raw_news = [
+                # NEWS HANDLING (SMART LINKS)
+                try: news = stock.news
+                except: news = []
+                
+                if not news:
+                    news = [
                         {'title': f"Latest News for {t} (Google Finance)", 'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"},
                         {'title': f"Latest News for {t} (Yahoo Finance)", 'link': f"https://finance.yahoo.com/quote/{t}/news"}
                     ]
                 
-                ai_summary, valid_news = generate_ai_summary(raw_news)
+                ai_summary, valid_news = generate_ai_summary(news)
                 
                 results.append({
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
@@ -649,6 +628,20 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         return results
 
     # --- MAIN INTERFACE ---
+    with st.expander("ℹ️ HOW TO READ THE DATA (USER GUIDE)", expanded=False):
+        st.markdown("""
+        ### 📊 METRIC LEGEND
+        * **🎯 Sniper Score (0-100):** Our proprietary composite score.
+            * **>75:** Strong Buy Signal
+            * **50-75:** Hold / Watch
+            * **<50:** Sell / Avoid
+        * **⚡ RVOL (Relative Volume):** How much volume is trading compared to normal.
+            * **>1.5:** High Institutional Activity (Big players are moving).
+        * **🔮 Oracle Ghost (Magenta Line):** A predictive line based on historical pattern matching.
+        * **☁️ Event Horizon (Green/Red Cloud):** Monte Carlo simulation showing the probable price range for the next 30 days.
+        * **🚨 Bubble Alert:** Triggered when P/E > 35 and Price is extended far above moving averages.
+        """)
+
     with st.form("scanner"):
         c1, c2 = st.columns([3, 1])
         with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM COIN")
@@ -847,7 +840,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
                     # Make link clickable and blue
-                    st.markdown(f"• <a href='{t_link}' target='_blank'>{t_title}</a>", unsafe_allow_html=True)
+                    st.markdown(f"• <a href='{t_link}' target='_blank' style='color: #00ccff; text-decoration: none;'>{t_title}</a>", unsafe_allow_html=True)
             else: st.write("No news found.")
             
         with t4: 
