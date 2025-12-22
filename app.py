@@ -9,6 +9,8 @@ import time
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from textblob import TextBlob
+from collections import Counter
+import re
 
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
@@ -20,56 +22,115 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Dark Mode & Terminal Styling
+# Bloomberg-style Dark Mode
 st.markdown("""
     <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
+        .stApp { background-color: #000000; color: #e0e0e0; }
         
-        .stApp { background-color: #0b0c10; color: #c5c6c7; }
-        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; color: #66fcf1 !important; }
+        /* Typography */
+        h1, h2, h3, h4 { font-family: 'Roboto', sans-serif; font-weight: 700; color: #ff9900 !important; letter-spacing: 1px; }
         
+        /* Metrics */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.2rem;
+            color: #00ffea; 
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        div[data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
+        
+        /* Buttons */
         .stButton>button {
             width: 100%;
-            border-radius: 4px;
+            border-radius: 0px;
             font-weight: bold;
             height: 3em;
             text-transform: uppercase;
             border: 1px solid #333;
-            background-color: #1f2833;
-            color: #66fcf1;
+            background-color: #1a1a1a;
+            color: #ff9900;
+            transition: all 0.3s;
         }
         .stButton>button:hover {
-            background-color: #45a29e;
-            color: black;
+            background-color: #ff9900;
+            color: #000;
+            border-color: #ff9900;
         }
         
-        div[data-testid="stMetricValue"] {
-            font-size: 1.2rem;
-            color: #00FFCC; 
-            font-family: 'Courier New', monospace;
-        }
-        div[data-testid="stMetricLabel"] {
-            font-size: 0.9rem;
-            color: #aaa;
-        }
-        
-        .reason-box {
+        /* Custom Boxes */
+        .ai-box {
             background-color: #111;
-            padding: 10px;
-            border-left: 3px solid #00FFCC;
-            margin-bottom: 5px;
+            padding: 15px;
+            border-left: 4px solid #00ffea;
+            margin-bottom: 10px;
             font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
             color: #eee;
+        }
+        
+        .tech-box {
+            background-color: #0a0a0a;
+            padding: 10px;
+            border: 1px solid #333;
+            margin-bottom: 5px;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC ---
+# --- 2. ADVANCED LOGIC (AI & MATH) ---
 # ==========================================
+
+def calculate_smart_levels(df):
+    """Calculates Support, Resistance and Fib Levels"""
+    if df.empty: return None, None, {}
+    
+    # Recent High/Low (last 6 months approx)
+    recent = df.iloc[-126:] 
+    high_price = recent['High'].max()
+    low_price = recent['Low'].min()
+    
+    # Fibonacci
+    diff = high_price - low_price
+    fibs = {
+        "Fib 0.236": high_price - (diff * 0.236),
+        "Fib 0.382": high_price - (diff * 0.382),
+        "Fib 0.5 (Golden)": high_price - (diff * 0.5),
+        "Fib 0.618": high_price - (diff * 0.618)
+    }
+    
+    return high_price, low_price, fibs
+
+def generate_ai_summary(news_items):
+    """Extracts keywords and generates a summary"""
+    if not news_items: return "No sufficient data for AI analysis.", []
+    
+    text_corpus = ""
+    valid_news = []
+    
+    for n in news_items:
+        title = n.get('title', '')
+        if title:
+            text_corpus += title + " "
+            valid_news.append(n)
+            
+    # Simple Keyword Extraction (simulating AI attention)
+    words = re.findall(r'\w+', text_corpus.lower())
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks']
+    filtered = [w for w in words if w not in ignore and len(w) > 4]
+    
+    common = Counter(filtered).most_common(5)
+    keywords = [c[0].upper() for c in common]
+    
+    # Sentiment Calculation
+    blob = TextBlob(text_corpus)
+    pol = blob.sentiment.polarity
+    
+    tone = "BULLISH 🐂" if pol > 0.05 else "BEARISH 🐻" if pol < -0.05 else "NEUTRAL ⚖️"
+    
+    summary = f"AI ANALYST DETECTED **{tone}** SENTIMENT.\n"
+    summary += f"Focus Areas: {', '.join(keywords)}."
+    
+    return summary, valid_news
 
 def calculate_indicators(hist):
     if hist.empty: return hist
@@ -95,25 +156,6 @@ def calculate_indicators(hist):
     hist['LowerBB'] = hist['SMA20'] - (hist['STD20'] * 2)
     
     return hist
-
-def analyze_sentiment(news_items):
-    if not news_items: return "NEUTRAL", 0
-    score = 0
-    count = 0
-    for item in news_items:
-        title = item.get('title', '')
-        if not title: continue
-        try:
-            blob = TextBlob(title)
-            score += blob.sentiment.polarity
-            count += 1
-        except: continue
-        
-    if count == 0: return "NEUTRAL", 0
-    avg = score / count
-    if avg > 0.05: return "BULLISH", avg
-    if avg < -0.05: return "BEARISH", avg
-    return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
     if len(hist_series) < (lookback * 4): return None
@@ -294,7 +336,6 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    # --- UPDATED DESCRIPTION AS REQUESTED ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
@@ -380,10 +421,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (Full with Oil and 10Y) ---
+    # --- MACRO BAR ---
     with st.container():
         try:
-            # We fetch one by one to avoid issues
             col1, col2, col3, col4 = st.columns(4)
             
             # VIX
@@ -412,7 +452,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
     st.divider()
 
-    # --- SCANNER ENGINE (ROBUST LOOP) ---
+    # --- SCANNER ENGINE ---
     def scan_market_safe(tickers):
         results = []
         progress_text = "Scanning assets..."
@@ -421,21 +461,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for idx, t in enumerate(tickers):
             try:
-                # Update progress
                 my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
                 
-                # Fetch Data ONE BY ONE (Safest method)
+                # Fetch Data
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
                 if df.empty or len(df) < 50: 
-                    # Fallback
                     df = yf.download(t, period="1y", progress=False, auto_adjust=True)
                     if df.empty or len(df) < 50: continue
                 
                 # Timezone cleanup
-                if df.index.tz is not None:
-                    df.index = df.index.tz_localize(None)
+                if df.index.tz is not None: df.index = df.index.tz_localize(None)
 
                 # Indicators
                 df = calculate_indicators(df)
@@ -470,8 +507,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if rsi < 30: score += 20
                 
                 vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                curr_vol = df['Volume'].iloc[-1]
-                rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
+                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
                 if rvol > 1.5: 
                     score += 10
                     reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
@@ -489,17 +525,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # Sentiment
+                # AI Summary Generation
                 news = stock.news
-                sent, sent_score = analyze_sentiment(news)
-                if sent == "BULLISH": reasons.append("✓ News Sentiment is Positive")
-                elif sent == "BEARISH": reasons.append("✗ News Sentiment is Negative")
+                ai_summary, valid_news = generate_ai_summary(news)
                 
                 results.append({
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
-                    "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, "Sentiment": sent,
-                    "History": df, "Info": info, "News": news, "Reasons": reasons,
-                    "TargetPrice": target_price, "Consensus": consensus
+                    "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, 
+                    "History": df, "Info": info, "News": valid_news, "Reasons": reasons,
+                    "TargetPrice": target_price, "Consensus": consensus,
+                    "AISummary": ai_summary
                 })
             except: continue
             
@@ -532,8 +567,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             "RVOL": f"{d['RVOL']:.1f}",
             "BUBBLE?": d['Bubble'],
             "PEG": d['PEG'],
-            "RSI": f"{d['RSI']:.1f}",
-            "SENTIMENT": d['Sentiment']
+            "RSI": f"{d['RSI']:.1f}"
         } for d in st.session_state['data']])
         
         def highlight_verdict(val):
@@ -562,13 +596,14 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
         target = next(d for d in st.session_state['data'] if d['Ticker'] == sel_t)
         
-        t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "NEWS AI", "RISK"])
+        t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK"])
         
         with t1: 
-            # PLOTLY CHART WITH SPY OVERLAY
+            # PLOTLY CHART
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             spy = get_spy_data()
+            high_lvl, low_lvl, fibs = calculate_smart_levels(hist)
             
             fig = make_subplots(
                 rows=2, 
@@ -584,9 +619,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
             
-            # SPY Overlay (Re-added per description)
+            # SPY Overlay
             if spy is not None:
-                # Normalize SPY to start at the same price as the stock for comparison
                 spy_subset = spy.reindex(hist.index, method='nearest')
                 if not spy_subset.empty:
                     scaling_factor = hist['Close'].iloc[0] / spy_subset.iloc[0]
@@ -598,6 +632,14 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
                 fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
+
+            # SMART TECHNICALS (NEW)
+            if high_lvl:
+                fig.add_hline(y=high_lvl, line_dash="dot", annotation_text="Res", annotation_position="top right", line_color="red")
+                fig.add_hline(y=low_lvl, line_dash="dot", annotation_text="Sup", annotation_position="bottom right", line_color="green")
+                # Fibonacci
+                for name, val in fibs.items():
+                    fig.add_hline(y=val, line_dash="dash", line_color="gray", annotation_text=name, opacity=0.5)
 
             # MACD
             fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
@@ -636,15 +678,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
             
         with t3: 
-            st.write("Recent News Sentiment:")
+            st.markdown("### 🧠 AI ANALYST BRIEFING")
+            st.markdown(f"<div class='ai-box'>{target['AISummary']}</div>", unsafe_allow_html=True)
+            
+            st.markdown("#### 📰 LATEST HEADLINES")
             news = target.get('News', [])
             if news:
                 for n in news[:5]:
-                    sent, score = analyze_sentiment([n])
-                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
-                    st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
+                    st.markdown(f"• [{t_title}]({t_link})")
             else: st.write("No news found.")
             
         with t4: 
