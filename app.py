@@ -97,6 +97,59 @@ st.markdown("""
         /* Links Styling */
         a { color: #00ccff !important; text-decoration: none; font-weight: bold; font-family: 'Courier New'; }
         a:hover { text-decoration: underline; color: #ff9900 !important; }
+        
+        /* PAYWALL STYLING */
+        .paywall-header {
+            text-align: center;
+            border: 1px solid #ff4444;
+            background-color: #1a0000;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        .paywall-title {
+            color: #ff4444;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .paywall-sub {
+            color: #aaa;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        .plan-card {
+            border: 1px solid #333;
+            background-color: #0f1216;
+            padding: 20px;
+            text-align: center;
+            border-radius: 4px;
+            height: 100%;
+        }
+        .plan-title {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .plan-price {
+            font-size: 2rem;
+            color: #00ffea;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        .plan-save {
+            color: #00ff00;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .best-value {
+            border: 1px solid #ff9900;
+            box-shadow: 0 0 15px rgba(255, 153, 0, 0.2);
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -104,7 +157,6 @@ st.markdown("""
 # --- 2. ADVANCED LOGIC (AI, MATH & NEWS) ---
 # ==========================================
 
-# --- PAYMENT LINKS DEFINITION (The Missing Part) ---
 STRIPE_LINKS = {
     "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
     "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
@@ -518,12 +570,55 @@ if not st.session_state['logged_in']:
 # --- 6. VIEW: PAYWALL ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
-    st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], use_container_width=True)
-    with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], use_container_width=True)
-    with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], use_container_width=True)
-    with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
+    st.markdown("""
+        <div class="paywall-header">
+            <div class="paywall-title">⛔ ACCESS RESTRICTED: INSTITUTIONAL GRADE DATA</div>
+            <div class="paywall-sub">
+                Your trial session has expired. To access real-time AI analytics, Oracle projections, and Monte Carlo simulations, authorization is required.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    c1, c2, c3, c4 = st.columns(4)
+    
+    with c1:
+        st.markdown("""
+            <div class="plan-card">
+                <div class="plan-title">Standard Access</div>
+                <div class="plan-price">€25<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.link_button("ACTIVATE MONTHLY", STRIPE_LINKS['1M'], use_container_width=True)
+        
+    with c2:
+        st.markdown("""
+            <div class="plan-card">
+                <div class="plan-title">Quarterly</div>
+                <div class="plan-price">€23<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-save">SAVE €24/YR</div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.link_button("ACTIVATE 3-MONTHS", STRIPE_LINKS['3M'], use_container_width=True)
+        
+    with c3:
+        st.markdown("""
+            <div class="plan-card">
+                <div class="plan-title">Semi-Annual</div>
+                <div class="plan-price">€20<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-save">SAVE €60/YR</div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.link_button("ACTIVATE 6-MONTHS", STRIPE_LINKS['6M'], use_container_width=True)
+        
+    with c4:
+        st.markdown("""
+            <div class="plan-card best-value">
+                <div class="plan-title" style="color: #ff9900;">🏆 INSTITUTIONAL TIER</div>
+                <div class="plan-price" style="color: #ff9900;">€15<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-save" style="color: #ff9900;">SAVE €120/YR (40% OFF)</div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.link_button("ACTIVATE YEARLY ACCESS", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
     
     st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
@@ -537,7 +632,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v8.1 (Ultimate)")
+        st.caption("v9.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
