@@ -17,16 +17,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# Custom CSS για να μοιάζει με Web App (SaaS)
 st.markdown("""
     <style>
+        /* Κρύψε το menu του Streamlit για καθαρό look */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
+        /* Γραμματοσειρές και Επικεφαλίδες */
         h1 { font-family: 'Helvetica Neue', sans-serif; font-weight: 800; letter-spacing: -1px; }
         h2, h3 { font-family: 'Helvetica Neue', sans-serif; font-weight: 600; }
         
+        /* Στυλ Κουμπιών */
         .stButton>button {
             width: 100%;
             border-radius: 5px;
@@ -34,6 +37,7 @@ st.markdown("""
             height: 3em;
         }
         
+        /* Μεγέθυνση αριθμών στα Metrics */
         div[data-testid="stMetricValue"] {
             font-size: 1.8rem;
         }
@@ -63,6 +67,7 @@ def add_user(email, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     hashed_pw = make_hashes(password)
+    # Default: Expired (Needs payment)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
@@ -94,6 +99,7 @@ def add_subscription_days(email, days_to_add):
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
+    # BACKDOOR ΓΙΑ ADMIN - ΠΑΝΤΑ ΕΝΕΡΓΟΣ
     if email == "admin": return True
     
     if not current_expiry_str: return False
@@ -120,6 +126,7 @@ if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
 if 'user_status' not in st.session_state: st.session_state['user_status'] = "expired"
 if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 
+# Έλεγχος επιστροφής από Stripe
 query_params = st.query_params
 if "payment_success" in query_params and st.session_state['logged_in']:
     try:
@@ -139,6 +146,7 @@ if "payment_success" in query_params and st.session_state['logged_in']:
 # ==========================================
 if not st.session_state['logged_in']:
     
+    # HERO SECTION
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
             <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
@@ -167,8 +175,10 @@ if not st.session_state['logged_in']:
         with tab_login:
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type='password', key="login_pass")
-            # UPDATED: width="stretch" instead of use_container_width
+            
+            # LOGIN BUTTON
             if st.button("LAUNCH TERMINAL", type="primary", width="stretch"):
+                # --- BACKDOOR CHECK ---
                 if email == "admin" and password == "PROTOS123":
                     st.session_state['logged_in'] = True
                     st.session_state['user_email'] = "admin"
@@ -177,6 +187,7 @@ if not st.session_state['logged_in']:
                     st.success("ADMIN OVERRIDE ACTIVATED 🔓")
                     time.sleep(0.5)
                     st.rerun()
+                # ----------------------
                 else:
                     user_record = login_user_db(email, password)
                     if user_record:
@@ -195,7 +206,8 @@ if not st.session_state['logged_in']:
             new_email = st.text_input("New Email", key="signup_email")
             new_pass = st.text_input("New Password", type='password', key="signup_pass")
             conf_pass = st.text_input("Confirm Password", type='password', key="signup_conf")
-            # UPDATED: width="stretch"
+            
+            # REGISTER BUTTON
             if st.button("CREATE ACCOUNT", width="stretch"):
                 if new_pass == conf_pass and len(new_pass) > 0:
                     if add_user(new_email, new_pass):
@@ -206,28 +218,27 @@ if not st.session_state['logged_in']:
                     st.warning("Passwords do not match.")
 
     with col_main_2:
+        # VIDEO SHOWCASE
         st.video("https://youtu.be/ql1suvTu_ak") 
         st.caption("See the Warp Speed Terminal in action.")
 
+    # SCREENSHOT GALLERY
     st.markdown("<br><br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     
     feat_col1, feat_col2, feat_col3 = st.columns(3)
     
     with feat_col1:
         st.markdown("**THE MATRIX SCANNER**")
-        # UPDATED: width="stretch"
         try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan & Verdicts", width="stretch")
         except: st.info("[Image: dashboard.png not found]")
         
     with feat_col2:
         st.markdown("**DEEP DIVE ANALYSIS**")
-        # UPDATED: width="stretch"
         try: st.image("analysis.png", caption="Automated Technicals, Levels & Sentiment", width="stretch")
         except: st.info("[Image: analysis.png not found]")
 
     with feat_col3:
         st.markdown("**RISK & INSIDERS**")
-        # UPDATED: width="stretch"
         try: st.image("risk_insiders.png", caption="Major Holders & Risk Profile", width="stretch")
         except: st.info("[Image: risk_insiders.png not found]")
 
@@ -264,7 +275,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        # UPDATED: width="stretch"
         st.link_button("GET 1 MONTH", STRIPE_LINKS['1M'], width="stretch")
 
     with col2:
@@ -276,7 +286,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        # UPDATED: width="stretch"
         st.link_button("GET 3 MONTHS", STRIPE_LINKS['3M'], width="stretch")
 
     with col3:
@@ -288,7 +297,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        # UPDATED: width="stretch"
         st.link_button("GET 6 MONTHS", STRIPE_LINKS['6M'], width="stretch")
 
     with col4:
@@ -301,7 +309,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        # UPDATED: width="stretch"
         st.link_button("GET 1 YEAR", STRIPE_LINKS['1Y'], type="primary", width="stretch")
 
     st.divider()
@@ -330,40 +337,40 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     @st.cache_data(ttl=300)
     def get_stock_data_web(tickers_list):
         data = []
+        # Καθαρισμός λίστας
         unique_tickers = list(set([t.strip().upper() for t in tickers_list if t.strip()]))
         if not unique_tickers: return []
         
         try:
-            # Download data
-            hist_data = yf.download(unique_tickers, period="2y", interval="1d", progress=False, auto_adjust=True)
+            # Download data - Χωρίς threading για αποφυγή rate limits του Yahoo
+            hist_data = yf.download(unique_tickers, period="2y", interval="1d", progress=False, auto_adjust=True, threads=False)
             if hist_data.empty: return []
         except Exception as e:
-            st.error(f"Market Data Error: {e}")
             return []
 
         for ticker in unique_tickers:
             try:
-                # Handle MultiIndex vs Single Index from YFinance
+                # Διαχείριση δεδομένων ανάλογα αν είναι 1 ή πολλά tickers
                 if len(unique_tickers) > 1:
-                    if ticker not in hist_data['Close'].columns: continue
-                    h_close = hist_data['Close'][ticker].dropna()
+                    try:
+                        h_close = hist_data['Close'][ticker].dropna()
+                    except KeyError:
+                        continue
                 else:
                     h_close = hist_data['Close'].dropna()
                 
                 if len(h_close) < 50: continue
                 
-                # --- FIX: Handling Float Conversion Warning ---
-                # We use .iloc[-1] and check if it needs .item() to become a scalar
+                # --- Ασφαλής μετατροπή δεδομένων (Fix Float Conversion) ---
                 curr_val = h_close.iloc[-1]
                 prev_val = h_close.iloc[-2]
                 
-                # Safe convert to float
                 current_price = float(curr_val.item()) if hasattr(curr_val, 'item') else float(curr_val)
                 prev_close = float(prev_val.item()) if hasattr(prev_val, 'item') else float(prev_val)
                 
                 change_pct = ((current_price - prev_close) / prev_close) * 100
                 
-                # MA & RSI Calculation
+                # Υπολογισμοί δεικτών
                 ma50 = h_close.rolling(50).mean().iloc[-1]
                 if hasattr(ma50, 'item'): ma50 = float(ma50.item())
                 
@@ -379,8 +386,10 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 rsi_final = rsi_val.iloc[-1]
                 if hasattr(rsi_final, 'item'): rsi_final = float(rsi_final.item())
                 
+                # --- Verdict Logic ---
                 t_obj = yf.Ticker(ticker)
-                info = t_obj.info
+                try: info = t_obj.info
+                except: info = {}
                 
                 verdict = "HOLD"
                 score = 0
@@ -401,25 +410,37 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "info": info
                 })
             except Exception as e: 
-                # Skip this ticker if it fails
                 continue
         return data
 
     st.title("🚀 WARP SPEED TERMINAL")
     st.markdown("_Institutional Analytics Suite_")
 
+    # Φόρμα εισαγωγής Tickers
     with st.form("scan_form"):
         col_in1, col_in2 = st.columns([3, 1])
-        with col_in1: tickers_input = st.text_input("ENTER ASSETS >", help="e.g. AAPL TSLA NVDA")
-        with col_in2: submitted = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
+        with col_in1: 
+            tickers_input = st.text_input("ENTER ASSETS >", help="Γράψε σύμβολα με κενό, π.χ.: AAPL TSLA BTC-USD")
+        with col_in2: 
+            submitted = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if 'stock_data' not in st.session_state: st.session_state['stock_data'] = []
 
-    if submitted and tickers_input:
-        with st.spinner('Accessing Global Markets...'):
-            tickers_list = [t.strip().upper() for t in tickers_input.replace(",", " ").split() if t.strip()]
-            st.session_state['stock_data'] = get_stock_data_web(tickers_list)
+    # Λογική εκτέλεσης SCAN
+    if submitted:
+        if not tickers_input:
+            st.warning("⚠️ Please enter at least one ticker symbol (e.g. AAPL).")
+        else:
+            with st.spinner('Connecting to Global Markets...'):
+                tickers_list = [t.strip().upper() for t in tickers_input.replace(",", " ").split() if t.strip()]
+                scan_results = get_stock_data_web(tickers_list)
+                st.session_state['stock_data'] = scan_results
 
+                if not scan_results:
+                    st.error(f"❌ No data found for: {tickers_input}")
+                    st.info("💡 Try using valid tickers (e.g., 'AAPL', 'NVDA', 'BTC-USD'). Check spelling.")
+
+    # Εμφάνιση αποτελεσμάτων
     if st.session_state['stock_data']:
         st.divider()
         df_display = pd.DataFrame([{ "Ticker": s['ticker'], "Price": f"${s['current_price']:.2f}", "Change": f"{s['change_pct']:+.2f}%", 
@@ -428,32 +449,48 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         def color_verdict(val):
             return f'color: {"#00FFCC" if val == "BUY" else "#ff4b4b" if val == "SELL" else "#ffffff"}; font-weight: bold'
         
-        # UPDATED: width="stretch"
         st.dataframe(df_display.style.map(color_verdict, subset=['VERDICT']), width="stretch", hide_index=True)
 
         st.markdown("### 🔬 DEEP DIVE ANALYSIS")
         selected_ticker = st.selectbox("Select Asset for Inspection:", [s['ticker'] for s in st.session_state['stock_data']])
+        
         if selected_ticker:
             stock = next(s for s in st.session_state['stock_data'] if s['ticker'] == selected_ticker)
             info = stock['info']
+            
             tab_chart, tab_fund, tab_news = st.tabs(["CHART", "FUNDAMENTALS", "NEWS"])
+            
             with tab_chart:
                 st.line_chart(stock['hist_close'])
                 col_m1, col_m2 = st.columns(2)
                 col_m1.metric("Current RSI", f"{stock['rsi']:.1f}")
                 col_m2.metric("Verdict", stock['verdict'])
+            
             with tab_fund:
                 cf1, cf2, cf3, cf4 = st.columns(4)
-                cf1.metric("P/E Ratio", info.get('trailingPE', '-'))
-                cf2.metric("Market Cap", f"${info.get('marketCap', 0)/1e9:.1f}B")
-                cf3.metric("52W High", info.get('fiftyTwoWeekHigh', '-'))
-                cf4.metric("Profit Margin", f"{info.get('profitMargins', 0)*100:.1f}%")
+                pe = info.get('trailingPE', '-')
+                mcap = info.get('marketCap', 0)
+                high52 = info.get('fiftyTwoWeekHigh', '-')
+                margins = info.get('profitMargins', 0)
+
+                cf1.metric("P/E Ratio", pe)
+                cf2.metric("Market Cap", f"${mcap/1e9:.1f}B" if isinstance(mcap, (int, float)) else "-")
+                cf3.metric("52W High", high52)
+                cf4.metric("Profit Margin", f"{margins*100:.1f}%" if isinstance(margins, (int, float)) else "-")
+            
             with tab_news:
                 st.write("Latest Headlines:")
                 try:
-                    for news in yf.Ticker(selected_ticker).news[:3]:
-                        st.markdown(f"**{news['title']}**")
-                        st.caption(f"Published: {datetime.fromtimestamp(news['providerPublishTime']).strftime('%Y-%m-%d')}")
-                except: st.write("No news feed available.")
-    else:
-        st.info("Enter tickers above (e.g., AAPL TSLA) to begin analysis.")
+                    t_news = yf.Ticker(selected_ticker).news
+                    if t_news:
+                        for news in t_news[:3]:
+                            st.markdown(f"**{news['title']}**")
+                            try:
+                                pub_time = datetime.fromtimestamp(news['providerPublishTime']).strftime('%Y-%m-%d')
+                                st.caption(f"Published: {pub_time}")
+                            except: pass
+                    else:
+                        st.write("No news found.")
+                except: st.write("News feed unavailable.")
+    elif not submitted:
+        st.info("Enter tickers above (e.g., AAPL TSLA) and press INITIATE SCAN.")
