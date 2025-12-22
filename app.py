@@ -77,9 +77,16 @@ def analyze_sentiment(news_items):
     score = 0
     count = 0
     for item in news_items:
-        blob = TextBlob(item['title'])
-        score += blob.sentiment.polarity
-        count += 1
+        # Safe get for title
+        title = item.get('title', '')
+        if not title: continue
+        
+        try:
+            blob = TextBlob(title)
+            score += blob.sentiment.polarity
+            count += 1
+        except: continue
+        
     if count == 0: return "NEUTRAL", 0
     avg = score / count
     if avg > 0.05: return "BULLISH", avg
@@ -278,17 +285,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
         "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
         "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
-        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365"
+        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
     }
-    cols = st.columns(4)
-    labels = ["1 MONTH (€25)", "3 MONTHS (€23/mo)", "6 MONTHS (€20/mo)", "1 YEAR (€15/mo)"]
-    keys = ["1M", "3M", "6M", "1Y"]
-    for c, l, k in zip(cols, labels, keys):
-        with c: st.link_button(l, links[k], use_container_width=True)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch")
+    with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], width="stretch")
+    with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
+    with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
+    st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
 # ==========================================
-# --- 7. VIEW: THE TERMINAL (MAIN APP) ---
+# --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
     
@@ -306,9 +314,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             cols = st.columns(4)
             names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
             for idx, (sym, name) in enumerate(names.items()):
-                val = last[sym]
-                chg = val - prev[sym]
-                cols[idx].metric(name, f"{val:.2f}", f"{chg:.2f}")
+                try:
+                    val = last[sym]
+                    chg = val - prev[sym]
+                    cols[idx].metric(name, f"{val:.2f}", f"{chg:.2f}")
+                except: pass
     except: pass
     st.divider()
 
@@ -423,12 +433,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         with t3: # News AI
             st.write("Recent News Sentiment:")
-            news = yf.Ticker(sel_t).news
+            news = target.get('news', [])
             if news:
                 for n in news[:5]:
                     sent, score = analyze_sentiment([n])
                     color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
-                    st.markdown(f"**:{color}[{sent}]** [{n['title']}]({n['link']})")
+                    # Safe get title/link
+                    title = n.get('title', 'No Title')
+                    link = n.get('link', '#')
+                    st.markdown(f"**:{color}[{sent}]** [{title}]({link})")
             else: st.write("No news found.")
             
         with t4: # Risk
@@ -437,5 +450,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
-            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
+            try: st.dataframe(target['yfinance_obj'].institutional_holders.head())
             except: st.write("Data hidden")
+
+    elif not run_scan:
+        st.info("Enter tickers above and press INITIATE SCAN.")
