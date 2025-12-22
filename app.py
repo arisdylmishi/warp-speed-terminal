@@ -509,7 +509,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V10.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V11.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -554,21 +554,33 @@ if not st.session_state['logged_in']:
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
     
-    # --- SCREENSHOTS WITH SNEAK PEEK BADGE ---
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2><br>", unsafe_allow_html=True)
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        try: st.image("preview_dashboard.jpg", caption="Matrix Scanner", use_container_width=True)
+    # --- 1. NEW: LIVE WEB PLATFORM PREVIEW ---
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
+    wc1, wc2 = st.columns(2)
+    with wc1:
+        try: st.image("preview_dashboard.jpg", caption="Matrix Scanner (Live)", use_container_width=True)
         except: st.info("[Dashboard Preview Missing]")
-        try: st.image("preview_ai.jpg", caption="AI Analyst", use_container_width=True)
+        try: st.image("preview_ai.jpg", caption="AI Analyst (Live)", use_container_width=True)
         except: st.info("[AI Preview Missing]")
         
-    with c2:
-        try: st.image("preview_chart.jpg", caption="Deep Dive & Event Horizon", use_container_width=True)
+    with wc2:
+        try: st.image("preview_chart.jpg", caption="Advanced Charting (Live)", use_container_width=True)
         except: st.info("[Chart Preview Missing]")
-        try: st.image("preview_heatmap.png", caption="Market Heatmap", use_container_width=True)
+        try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
+
+    # --- 2. OLD: APP SNEAK PEEK ---
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        try: st.image("dashboard.png", caption="App Dashboard", use_container_width=True) 
+        except: st.info("[App Dashboard Preview]")
+    with c2:
+        try: st.image("analysis.png", caption="App Analysis", use_container_width=True) 
+        except: st.info("[App Analysis Preview]")
+    with c3:
+        try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
+        except: st.info("[App Risk Preview]")
             
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
@@ -638,7 +650,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v10.0 (Ultimate)")
+        st.caption("v11.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
