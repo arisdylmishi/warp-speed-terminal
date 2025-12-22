@@ -20,58 +20,48 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Professional Dark Mode Styling (Bloomberg Style)
+# Dark Mode & Terminal Styling
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* General App Styling */
-        .stApp {
-            background-color: #0b0c10;
-            color: #c5c6c7;
-        }
+        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
         
-        /* Fonts */
-        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; color: #66fcf1 !important; }
-        p, div, label, span { font-family: 'Consolas', monospace; }
-        
-        /* Buttons */
         .stButton>button {
             width: 100%;
-            border-radius: 2px;
+            border-radius: 4px;
             font-weight: bold;
             height: 3em;
             text-transform: uppercase;
-            background-color: #1f2833;
-            color: #66fcf1;
-            border: 1px solid #45a29e;
-        }
-        .stButton>button:hover {
-            background-color: #45a29e;
-            color: #0b0c10;
+            border: 1px solid #333;
         }
         
-        /* Metrics Styling */
         div[data-testid="stMetricValue"] {
-            font-size: 1.1rem;
-            color: #00e676; /* Neon Green */
+            font-size: 1.2rem;
+            color: #00FFCC; /* Neon Cyan */
+            font-family: 'Courier New', monospace;
         }
         div[data-testid="stMetricLabel"] {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             color: #aaa;
         }
         
-        /* Table Styling */
-        div[data-testid="stDataFrame"] {
-            border: 1px solid #333;
+        /* Custom Box for Explanations */
+        .reason-box {
+            background-color: #111;
+            padding: 10px;
+            border-left: 3px solid #00FFCC;
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (MATH, AI, ORACLE) ---
+# --- 2. ADVANCED LOGIC ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -99,9 +89,10 @@ def calculate_indicators(hist):
     return hist
 
 def analyze_sentiment(news_items):
-    if not news_items: return "NEUTRAL"
     score = 0
     count = 0
+    if not news_items: return "NEUTRAL", 0
+    
     for item in news_items:
         title = item.get('title', '')
         if not title: continue
@@ -111,14 +102,14 @@ def analyze_sentiment(news_items):
             count += 1
         except: continue
         
-    if count == 0: return "NEUTRAL"
+    if count == 0: return "NEUTRAL", 0
     avg = score / count
-    if avg > 0.05: return "BULLISH"
-    if avg < -0.05: return "BEARISH"
-    return "NEUTRAL"
+    if avg > 0.05: return "BULLISH", avg
+    if avg < -0.05: return "BEARISH", avg
+    return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm"""
+    """The Oracle Ghost Algorithm (Optimized for visibility)"""
     if len(hist_series) < (lookback * 4): return None
     
     current_pattern = hist_series.iloc[-lookback:].values
@@ -128,10 +119,10 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
     
     best_score = -1
     best_idx = -1
-    # Search history (optimized step)
     search_range = len(hist_series) - lookback - projection - 1
     
-    for i in range(0, search_range, 3): 
+    # Check every 2 steps to find patterns better
+    for i in range(0, search_range, 2): 
         candidate = hist_series.iloc[i : i+lookback].values
         if candidate.max() == candidate.min(): continue
         cand_norm = (candidate - candidate.min()) / (candidate.max() - candidate.min())
@@ -142,23 +133,20 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
                 best_idx = i
         except: continue
 
-    if best_score > 0.75:
+    # Lowered threshold to 0.60 so it appears more often
+    if best_score > 0.60:
         ghost = hist_series.iloc[best_idx : best_idx + lookback + projection].copy()
         scale_factor = hist_series.iloc[-1] / ghost.iloc[lookback-1]
         ghost_future = ghost.iloc[lookback:] * scale_factor
         return ghost_future
     return None
 
-def calculate_fibonacci(hist):
-    high = hist['High'].max()
-    low = hist['Low'].min()
-    diff = high - low
-    return {
-        0.236: high - (diff * 0.236),
-        0.382: high - (diff * 0.382),
-        0.5: high - (diff * 0.5),
-        0.618: high - (diff * 0.618)
-    }
+def format_large_number(num):
+    if not num or isinstance(num, str): return "N/A"
+    if num >= 1e12: return f"${num/1e12:.2f}T"
+    if num >= 1e9: return f"${num/1e9:.2f}B"
+    if num >= 1e6: return f"${num/1e6:.2f}M"
+    return f"${num:.2f}"
 
 # ==========================================
 # --- 3. DATABASE (LOGIN SYSTEM) ---
@@ -293,6 +281,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
+    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
@@ -300,17 +289,18 @@ if not st.session_state['logged_in']:
         
         #### Detailed Features:
         **1. Central Control Panel (Smart Dashboard)**
-        * **Macro Climate Bar:** Live monitoring (VIX, Bonds, BTC, Oil).
-        * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
+        * **Verdict:** Clear BUY/SELL signals based on 50/200 MA and RSI.
+        * **Sniper Score (/100):** Quantitative scoring of the opportunity.
         
-        **2. Deep Analysis**
-        * **AI Tab:** NLP news sentiment (Bullish/Bearish).
-        * **Fundamentals:** P/E, PEG, ROE, FCF, Moat.
+        **2. Deep Analysis (Deep Dive View)**
+        * **Wall Street:** Analyst Price Targets and Consensus.
+        * **Fundamentals:** Market Cap, Dividend Yield, ROE, FCF.
         * **Risk:** Beta, Short Float, Institutional Holders.
         
         **3. Advanced Charting & "The Oracle"**
-        * **Oracle Projection:** Algorithm scanning patterns to forecast future price (Ghost).
-        * **SPY Overlay:** Benchmark against S&P 500.
+        * **Oracle Projection:** Algorithm identifying past patterns (Ghost) to forecast future.
+        * **SPY Overlay:** Benchmarking against S&P 500.
         
         **4. Management**
         * **Correlation Matrix** & **Data Export**.
@@ -318,13 +308,15 @@ if not st.session_state['logged_in']:
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
-    # Using explicit file names as requested
-    imgs = ["dashboard.png", "analysis.jpg", "risk_insiders.png"]
+    # Using explicit file names as requested (PNG)
+    imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
             try: st.image(img, caption=cap, use_container_width=True) 
-            except: st.info(f"[{cap} Preview]")
+            except: st.info(f"[{cap} Preview - Check {img} in Repo]")
+            
+    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
 # --- 6. VIEW: PAYWALL ---
@@ -342,6 +334,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], use_container_width=True)
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], use_container_width=True)
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
+    
+    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
@@ -355,36 +349,40 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.caption(f"User: {st.session_state['user_email']}")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
-        st.markdown("**Support:**\nwarpspeedterminal@gmail.com")
+        st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (FIXED NAN) ---
-    try:
-        macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
-        # Fetch minimal data to be fast
-        m_data = yf.download(macro_ticks, period="5d", progress=False)['Close']
-        
-        cols = st.columns(4)
-        names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
-        
-        if not m_data.empty and len(m_data) >= 2:
-            last = m_data.iloc[-1]
-            prev = m_data.iloc[-2]
-            for idx, (sym, name) in enumerate(names.items()):
-                try:
-                    val = last.get(sym, np.nan)
-                    pval = prev.get(sym, np.nan)
-                    if pd.notna(val) and pd.notna(pval):
-                        chg = ((val - pval) / pval) * 100
-                        cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
+    # --- MACRO BAR (Robust Error Handling) ---
+    with st.container():
+        try:
+            macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
+            m_data = yf.download(macro_ticks, period="5d", progress=False)['Close']
+            
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
+            
+            if not m_data.empty and len(m_data) >= 2:
+                last_row = m_data.iloc[-1]
+                prev_row = m_data.iloc[-2]
+                
+                for idx, (sym, name) in enumerate(names.items()):
+                    val = last_row.get(sym, np.nan)
+                    prev_val = prev_row.get(sym, np.nan)
+                    
+                    if pd.isna(val) or pd.isna(prev_val) or prev_val == 0:
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, "N/A", "N/A")
                     else:
-                        cols[idx].metric(name, "N/A", "0.00%")
-                except: cols[idx].metric(name, "N/A", "0.00%")
-        else:
-            for idx, name in enumerate(names.values()): cols[idx].metric(name, "Loading...", "")
-    except: pass
+                        chg = ((val - prev_val) / prev_val) * 100
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
+            else:
+                st.caption("Macro data unavailable (Market Closed/API Limit)")
+        except Exception as e: 
+            st.caption(f"Macro Data Error: {str(e)}")
+            
     st.divider()
 
-    # --- SCANNER ENGINE (ROBUST) ---
+    # --- SCANNER ENGINE ---
     @st.cache_data(ttl=300)
     def scan_market(tickers):
         results = []
@@ -394,12 +392,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for t in tickers:
             try:
-                # Data Handling
+                # Handle single vs multi ticker logic
                 if len(tickers) > 1:
                     if t not in data.columns.levels[0]: continue
                     df = data[t].copy()
                 else:
-                    df = data.copy()
+                    df = data.copy() # If single ticker, data is already the dataframe
                 
                 if df.empty or len(df) < 50: continue
                 
@@ -410,21 +408,39 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 chg = ((curr - prev)/prev)*100
                 rsi = df['RSI'].iloc[-1]
                 
-                # Verdict Logic
+                # Verdict & Explanations Logic
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
                 ma200 = df['Close'].rolling(200).mean().iloc[-1]
                 
                 verdict = "HOLD"
-                if curr > ma50 and rsi < 70: verdict = "BUY"
-                if curr < ma50 or rsi > 70: verdict = "SELL"
-                if rsi < 30: verdict = "STRONG BUY"
+                reasons = [] # Store reasons for Deep Dive
+                
+                if curr > ma50:
+                    reasons.append(f"✓ Price (${curr:.2f}) > 50MA (${ma50:.2f}) -> Bullish Trend")
+                    if rsi < 70: verdict = "BUY"
+                else:
+                    reasons.append(f"✗ Price (${curr:.2f}) < 50MA (${ma50:.2f}) -> Bearish Trend")
+                    if rsi > 70: verdict = "SELL"
+                
+                if rsi < 30: 
+                    verdict = "STRONG BUY"
+                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
+                elif rsi > 70:
+                    verdict = "SELL"
+                    reasons.append(f"✗ RSI ({rsi:.0f}) is Overbought -> Pullback Risk")
                 
                 # Sniper Score
                 score = 50
                 if verdict == "BUY": score += 20
+                if verdict == "STRONG BUY": score += 35
                 if rsi < 30: score += 20
+                
                 vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                if df['Volume'].iloc[-1] > vol_mean * 1.5: score += 10
+                curr_vol = df['Volume'].iloc[-1]
+                rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
+                if rvol > 1.5: 
+                    score += 10
+                    reasons.append(f"⚡ High Volume (RVOL {rvol:.1f}) -> Institutional Activity")
                 
                 # Info
                 info = yf.Ticker(t).info
@@ -433,32 +449,27 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if pe and pe > 35 and curr > ma200 * 1.4: 
                     bubble = "🚨 YES"
                     score -= 20
+                    reasons.append("⚠️ Bubble Alert: High P/E & Extended Price")
                 
                 peg = info.get('pegRatio', 'N/A')
                 
+                # Wall Street Data
+                target_price = info.get('targetMeanPrice', 'N/A')
+                consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
+                
                 # Sentiment
                 news = yf.Ticker(t).news
-                sent = analyze_sentiment(news)
+                sent, sent_score = analyze_sentiment(news)
+                if sent == "BULLISH": reasons.append("✓ News Sentiment is Positive")
+                elif sent == "BEARISH": reasons.append("✗ News Sentiment is Negative")
                 
-                # RVOL
-                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
-
                 results.append({
-                    "Ticker": t, 
-                    "Price": curr, 
-                    "Change": chg, 
-                    "Verdict": verdict, 
-                    "Sniper": score, 
-                    "RVOL": rvol,
-                    "Bubble": bubble,
-                    "PEG": peg,
-                    "RSI": rsi,
-                    "Sentiment": sent,
-                    "History": df, 
-                    "Info": info,
-                    "News": news
+                    "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
+                    "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, "Sentiment": sent,
+                    "History": df, "Info": info, "News": news, "Reasons": reasons,
+                    "TargetPrice": target_price, "Consensus": consensus
                 })
-            except: continue
+            except Exception as e: continue
         return results
 
     # --- MAIN INTERFACE ---
@@ -469,10 +480,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
 
     if run_scan:
         ticks = [t.strip().upper() for t in query.replace(",", " ").split()]
-        st.session_state['data'] = scan_market(ticks)
+        if ticks:
+            st.session_state['data'] = scan_market(ticks)
+        else:
+            st.warning("Please enter at least one symbol.")
 
     if 'data' in st.session_state and st.session_state['data']:
-        # 1. TABLE
+        # 1. TABLE (Dashboard Style)
         df_view = pd.DataFrame([{
             "TICKER": d['Ticker'],
             "PRICE": f"{d['Price']:.2f}",
@@ -498,7 +512,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             if st.button("Show Correlation Matrix"):
                 prices = {d['Ticker']: d['History']['Close'] for d in st.session_state['data']}
                 if len(prices) > 1:
-                    fig, ax = plt.subplots(figsize=(8, 4))
+                    fig, ax = plt.subplots(figsize=(8, 6))
                     sns.heatmap(pd.DataFrame(prices).corr(), annot=True, cmap='coolwarm', ax=ax)
                     st.pyplot(fig)
                 else: st.warning("Need >1 asset for matrix.")
@@ -506,78 +520,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             csv = df_view.to_csv(index=False).encode('utf-8')
             st.download_button("Export CSV", csv, "warp_scan.csv", "text/csv")
 
-        # 3. DEEP DIVE (RICH PLOTLY CHARTS)
+        # 3. DEEP DIVE
         st.divider()
         st.subheader("🔬 DEEP DIVE ANALYSIS")
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
         target = next(d for d in st.session_state['data'] if d['Ticker'] == sel_t)
         
-        t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS", "NEWS AI", "RISK"])
+        t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "NEWS AI", "RISK"])
         
-        with t1: 
-            # PLOTLY INTERACTIVE CHART
+        with t1: # PLOTLY CHART
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             
-            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
-            
-            # Candlesticks
-            fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
-            # BB
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
-            
-            # Oracle Ghost
-            if ghost is not None:
-                last_date = hist.index[-1]
-                future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
-                fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
-
-            # MACD
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
-            fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
-
-            fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with t2:
-            i = target['Info']
-            c1, c2, c3 = st.columns(3)
-            c1.metric("P/E Ratio", i.get('trailingPE', '-'))
-            c1.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
-            c2.metric("PEG Ratio", i.get('pegRatio', '-'))
-            c2.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
-            c3.metric("Debt/Equity", i.get('debtToEquity', '-'))
-            c3.metric("Free Cash Flow", f"${i.get('freeCashflow', 0)/1e9:.2f}B" if i.get('freeCashflow') else '-')
-            
-        with t3:
-            st.write("Recent News Sentiment:")
-            if target['News']:
-                for n in target['News'][:5]:
-                    # Check title existance
-                    t_title = n.get('title', 'No Title')
-                    t_link = n.get('link', '#')
-                    # Sentiment
-                    try: 
-                        blob = TextBlob(t_title)
-                        pol = blob.sentiment.polarity
-                        sent = "BULLISH" if pol > 0.05 else "BEARISH" if pol < -0.05 else "NEUTRAL"
-                    except: sent = "NEUTRAL"
-                    
-                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
-                    st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
-            else: st.write("No news found.")
-            
-        with t4:
-            i = target['Info']
-            c1, c2 = st.columns(2)
-            c1.metric("Beta (Volatility)", i.get('beta', '-'))
-            c2.metric("Short Ratio", i.get('shortRatio', '-'))
-            st.caption("Institutional Holders:")
-            # Safe Fetch
-            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
-            except: st.write("Data hidden")
-
-    elif not run_scan:
-        st.info("Enter tickers above and press INITIATE SCAN.")
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0
