@@ -5,10 +5,10 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from textblob import TextBlob
+import time
 
 # ==========================================
-# --- 1. SYSTEM CONFIGURATION & DATABASE ---
+# --- 1. CONFIGURATION & CUSTOM STYLING ---
 # ==========================================
 st.set_page_config(
     page_title="Warp Speed Terminal", 
@@ -17,7 +17,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- DATABASE MANAGEMENT (SQLite) ---
+# Custom CSS για να μοιάζει με Web App και όχι απλό script
+st.markdown("""
+    <style>
+        /* Κρύψε το menu του Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Stylized Headers */
+        h1 { font-family: 'Helvetica Neue', sans-serif; font-weight: 800; letter-spacing: -1px; }
+        h2, h3 { font-family: 'Helvetica Neue', sans-serif; font-weight: 600; }
+        
+        /* Pricing Cards Look */
+        .stButton>button {
+            width: 100%;
+            border-radius: 5px;
+            font-weight: bold;
+            height: 3em;
+        }
+        
+        /* Highlight boxes */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.8rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# --- 2. DATABASE MANAGEMENT ---
+# ==========================================
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -38,10 +67,8 @@ def add_user(email, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     hashed_pw = make_hashes(password)
-    # Default: Expired (Needs payment)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
-    
     try:
         c.execute('INSERT INTO users(email, password, status, join_date, expiry_date) VALUES (?,?,?,?,?)', 
                   (email, hashed_pw, 'expired', current_date, past_date))
@@ -52,7 +79,7 @@ def add_user(email, password):
     conn.close()
     return result
 
-def login_user(email, password):
+def login_user_db(email, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     hashed_pw = make_hashes(password)
@@ -71,6 +98,9 @@ def add_subscription_days(email, days_to_add):
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
+    # BACKDOOR ΓΙΑ ADMIN
+    if email == "admin": return True
+    
     if not current_expiry_str: return False
     try:
         expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
@@ -88,7 +118,7 @@ def check_subscription_validity(email, current_expiry_str):
 init_db()
 
 # ==========================================
-# --- 2. SESSION & PAYMENT CONTROLLER ---
+# --- 3. SESSION & STATE CONTROLLER ---
 # ==========================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
@@ -102,133 +132,210 @@ if "payment_success" in query_params and st.session_state['logged_in']:
         new_date = add_subscription_days(st.session_state['user_email'], days_purchased)
         st.session_state['user_status'] = 'active'
         st.session_state['expiry_date'] = new_date
-        st.toast(f"PAYMENT CONFIRMED! Access granted until {new_date}", icon="✅")
+        st.toast(f"VIP ACCESS GRANTED until {new_date}", icon="🚀")
         st.query_params.clear()
+        time.sleep(2)
+        st.rerun()
     except Exception as e:
         st.error(f"Activation Error: {e}")
 
 # ==========================================
-# --- 3. VIEW: LANDING PAGE (Not Logged In) ---
+# --- 4. VIEW: LANDING PAGE (SALES MODE) ---
 # ==========================================
 if not st.session_state['logged_in']:
     
+    # HERO SECTION
     st.markdown("""
-        <h1 style='text-align: center; color: #00FFCC; font-family: "Courier New", monospace; font-size: 50px;'>
-        WARP SPEED TERMINAL
-        </h1>
-        <h3 style='text-align: center; color: #888; letter-spacing: 2px;'>
-        INSTITUTIONAL GRADE MARKET INTELLIGENCE
-        </h3>
-        """, unsafe_allow_html=True)
+        <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
+            <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
+            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence for Everyone.</p>
+            <p style='font-size: 16px; color: #666;'>Real-time Scanning • Technical Analysis • Risk Management</p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    st.divider()
-
-    # --- 1. ΑΛΛΑΓΗ VIDEO ---
-    col_v1, col_v2, col_v3 = st.columns([1, 2, 1])
-    with col_v2:
-        st.video("https://youtu.be/ql1suvTu_ak") # <--- ΒΑΛΕ ΤΟ YOUTUBE LINK ΕΔΩ
+    col_main_1, col_main_2 = st.columns([1, 1], gap="large")
     
-    st.divider()
-
-    col_a1, col_a2, col_a3 = st.columns([1, 1, 1])
-    with col_a2:
-        tab_login, tab_signup = st.tabs(["🔒 MEMBER LOGIN", "📝 NEW ACCOUNT"])
-
+    with col_main_1:
+        st.markdown("### ⚡ UNLEASH THE DATA")
+        st.markdown("""
+        Stop guessing. Start executing. The Warp Speed Terminal gives you the same tools used by hedge funds:
+        
+        * **Live Matrix Scanner:** Find movers instantly with institutional verdicts.
+        * **Deep Dive Analytics:** Automated Technicals, Fibonacci levels, and Sentiment.
+        * **Risk Profiles:** See major holders, insider activity, and short float.
+        """)
+        
+        # LOGIN / SIGNUP BOX
+        st.markdown("---")
+        st.subheader("🔑 ACCESS TERMINAL")
+        
+        tab_login, tab_signup = st.tabs(["LOG IN", "REGISTER"])
+        
         with tab_login:
-            email = st.text_input("Email Address", key="login_email")
+            email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type='password', key="login_pass")
-            if st.button("ENTER TERMINAL", type="primary", use_container_width=True):
-                user_record = login_user(email, password)
-                if user_record:
-                    email_db = user_record[0][0]
-                    expiry_db = user_record[0][4]
-                    is_active = check_subscription_validity(email_db, expiry_db)
+            if st.button("LAUNCH TERMINAL", type="primary"):
+                # --- BACKDOOR CHECK ---
+                if email == "admin" and password == "PROTOS123":
                     st.session_state['logged_in'] = True
-                    st.session_state['user_email'] = email_db
-                    st.session_state['expiry_date'] = expiry_db
-                    st.session_state['user_status'] = 'active' if is_active else 'expired'
+                    st.session_state['user_email'] = "admin"
+                    st.session_state['expiry_date'] = "LIFETIME VIP"
+                    st.session_state['user_status'] = 'active'
+                    st.success("ADMIN OVERRIDE ACTIVATED 🔓")
+                    time.sleep(0.5)
                     st.rerun()
+                # ----------------------
                 else:
-                    st.error("Invalid Credentials.")
+                    user_record = login_user_db(email, password)
+                    if user_record:
+                        email_db = user_record[0][0]
+                        expiry_db = user_record[0][4]
+                        is_active = check_subscription_validity(email_db, expiry_db)
+                        st.session_state['logged_in'] = True
+                        st.session_state['user_email'] = email_db
+                        st.session_state['expiry_date'] = expiry_db
+                        st.session_state['user_status'] = 'active' if is_active else 'expired'
+                        st.rerun()
+                    else:
+                        st.error("Incorrect credentials.")
 
         with tab_signup:
-            new_email = st.text_input("Enter Valid Email", key="signup_email")
-            new_pass = st.text_input("Create Password", type='password', key="signup_pass")
+            new_email = st.text_input("New Email", key="signup_email")
+            new_pass = st.text_input("New Password", type='password', key="signup_pass")
             conf_pass = st.text_input("Confirm Password", type='password', key="signup_conf")
-            if st.button("REGISTER ACCOUNT", use_container_width=True):
+            if st.button("CREATE ACCOUNT"):
                 if new_pass == conf_pass and len(new_pass) > 0:
                     if add_user(new_email, new_pass):
-                        st.success("Account created successfully! Please Log In.")
+                        st.success("Account created! Please log in.")
                     else:
-                        st.error("This email is already registered.")
+                        st.error("Email already exists.")
                 else:
-                    st.warning("Passwords do not match or are empty.")
+                    st.warning("Passwords do not match.")
 
-    # Description & Support
-    st.markdown("<br>", unsafe_allow_html=True)
-    try:
-        with open("description.txt", "r") as f: st.info(f.read())
-    except: pass
+    with col_main_2:
+        # VIDEO SHOWCASE
+        st.video("https://youtu.be/ql1suvTu_ak") 
+        st.caption("See the Warp Speed Terminal in action.")
+
+    # SCREENSHOT GALLERY (Features)
+    st.markdown("<br><br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     
-    st.markdown("<p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    feat_col1, feat_col2, feat_col3 = st.columns(3)
+    
+    with feat_col1:
+        st.markdown("**THE MATRIX SCANNER**")
+        # Χρησιμοποιούμε την εικόνα image_2.png μετονομασμένη σε dashboard.png
+        try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan & Verdicts", use_container_width=True)
+        except: st.info("[Image: dashboard.png not found]")
+        
+    with feat_col2:
+        st.markdown("**DEEP DIVE ANALYSIS**")
+        # Χρησιμοποιούμε την εικόνα image_3.png μετονομασμένη σε analysis.png
+        try: st.image("analysis.png", caption="Automated Technicals, Levels & Sentiment", use_container_width=True)
+        except: st.info("[Image: analysis.png not found]")
+
+    with feat_col3:
+        st.markdown("**RISK & INSIDERS**")
+        # Χρησιμοποιούμε την εικόνα image_0.png μετονομασμένη σε risk_insiders.png
+        try: st.image("risk_insiders.png", caption="Major Holders & Risk Profile", use_container_width=True)
+        except: st.info("[Image: risk_insiders.png not found]")
+
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #555;'>© 2025 Warp Speed Inc. | Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 
 # ==========================================
-# --- 4. VIEW: PAYMENT WALL (Logged in, Expired) ---
+# --- 5. VIEW: PRICING WALL (Logged in, Expired) ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
     
-    st.markdown(f"<h2 style='text-align:center'>👋 Welcome, {st.session_state['user_email']}</h2>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align:center; color: #ff4b4b'>⚠️ SUBSCRIPTION INACTIVE</h3>", unsafe_allow_html=True)
-    if st.session_state['expiry_date']:
-        st.write(f"<p style='text-align:center'>Your access expired on: <b>{st.session_state['expiry_date']}</b></p>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align:center'>👋 Welcome back, {st.session_state['user_email']}</h2>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; background-color: #2b1c1c; padding: 10px; border-radius: 10px; border: 1px solid #ff4b4b; margin-bottom: 20px;'>⚠️ YOUR SUBSCRIPTION HAS EXPIRED</div>", unsafe_allow_html=True)
     
-    st.write("<p style='text-align:center'>Select a membership tier to activate the terminal.</p>", unsafe_allow_html=True)
-    st.divider()
+    st.markdown("<h3 style='text-align:center;'>Choose your Plan</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color: #aaa;'>Unlock full access to the Matrix, Deep Dives, and Sniper alerts.</p><br>", unsafe_allow_html=True)
 
-    # --- 2. ΑΛΛΑΓΗ STRIPE LINKS ---
-    # Βάλε τα Links σου και ΜΗΝ ΣΒΗΣΕΙΣ το ?days=XX στο τέλος
+    # --- STRIPE LINKS & CALCULATIONS ---
+    # Pricing logic:
+    # 1M = 25/mo
+    # 3M = 23/mo (Total 69 vs 75) -> Save 6
+    # 6M = 20/mo (Total 120 vs 150) -> Save 30
+    # 1Y = 15/mo (Total 180 vs 300) -> Save 120
+    
     STRIPE_LINKS = {
-        "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",   # 1 Μήνας
-        "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",   # 3 Μήνες
-        "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",  # 6 Μήνες
-        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",  # 1 Έτος
+        "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
+        "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
+        "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
+        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
     }
-    # -----------------------------
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.info("#### MONTHLY\n# €25")
-        st.link_button("ACTIVATE (30 DAYS)", STRIPE_LINKS['1M'], use_container_width=True)
-    with c2:
-        st.info("#### QUARTERLY\n# €23 / mo")
-        st.link_button("ACTIVATE (90 DAYS)", STRIPE_LINKS['3M'], use_container_width=True)
-    with c3:
-        st.info("#### SEMI-ANNUAL\n# €20 / mo")
-        st.link_button("ACTIVATE (180 DAYS)", STRIPE_LINKS['6M'], use_container_width=True)
-    with c4:
-        st.info("#### ANNUAL\n# €15 / mo")
-        st.link_button("ACTIVATE (365 DAYS)", STRIPE_LINKS['1Y'], use_container_width=True)
-    st.markdown("<br><p style='text-align: center; color: grey;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("""
+        <div style='background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333;'>
+            <h3>STARTER</h3>
+            <h1 style='color: #fff;'>€25<span style='font-size: 15px'>/mo</span></h1>
+            <p style='color: #666;'>Flexible</p>
+            <br>
+        </div>
+        """, unsafe_allow_html=True)
+        st.link_button("GET 1 MONTH", STRIPE_LINKS['1M'], use_container_width=True)
+
+    with col2:
+        st.markdown("""
+        <div style='background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333;'>
+            <h3>QUARTERLY</h3>
+            <h1 style='color: #fff;'>€23<span style='font-size: 15px'>/mo</span></h1>
+            <p style='color: #00FFCC; font-weight: bold;'>SAVE €6</p>
+            <br>
+        </div>
+        """, unsafe_allow_html=True)
+        st.link_button("GET 3 MONTHS", STRIPE_LINKS['3M'], use_container_width=True)
+
+    with col3:
+        st.markdown("""
+        <div style='background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333;'>
+            <h3>SEMI-ANNUAL</h3>
+            <h1 style='color: #fff;'>€20<span style='font-size: 15px'>/mo</span></h1>
+            <p style='color: #00FFCC; font-weight: bold;'>SAVE €30</p>
+            <br>
+        </div>
+        """, unsafe_allow_html=True)
+        st.link_button("GET 6 MONTHS", STRIPE_LINKS['6M'], use_container_width=True)
+
+    with col4:
+        # HIGHLIGHTED CARD
+        st.markdown("""
+        <div style='background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #00FFCC; position: relative;'>
+            <div style='position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #00FFCC; color: #000; padding: 2px 10px; border-radius: 10px; font-weight: bold; font-size: 12px;'>BEST VALUE</div>
+            <h3>ANNUAL</h3>
+            <h1 style='color: #fff;'>€15<span style='font-size: 15px'>/mo</span></h1>
+            <p style='color: #00FFCC; font-weight: bold;'>SAVE €120</p>
+            <br>
+        </div>
+        """, unsafe_allow_html=True)
+        st.link_button("GET 1 YEAR", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
+
     st.divider()
-    if st.button("Log Out"):
+    if st.button("Logout"):
         st.session_state['logged_in'] = False
         st.rerun()
 
 
 # ==========================================
-# --- 5. VIEW: THE TERMINAL (Logged in, Active) ---
+# --- 6. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
     
     with st.sidebar:
-        st.write(f"USER: **{st.session_state['user_email']}**")
-        st.caption(f"Valid until: {st.session_state['expiry_date']}")
-        st.success("STATUS: ONLINE 🟢")
+        st.write(f"PILOT: **{st.session_state['user_email']}**")
+        st.caption(f"LICENSE EXPIRY: {st.session_state['expiry_date']}")
+        st.success("SYSTEM ONLINE 🟢")
         st.divider()
         st.caption("Support: warpspeedterminal@gmail.com")
         st.divider()
-        if st.button("LOGOUT", type="primary"):
+        if st.button("EJECT (LOGOUT)", type="primary"):
             st.session_state['logged_in'] = False
             st.rerun()
 
