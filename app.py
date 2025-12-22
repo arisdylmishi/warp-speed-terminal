@@ -244,7 +244,7 @@ if "payment_success" in query_params and st.session_state['logged_in']:
         st.error(f"Activation Error: {e}")
 
 # ==========================================
-# --- 5. VIEW: LANDING PAGE (LOGIN) ---
+# --- 5. VIEW: LANDING PAGE ---
 # ==========================================
 if not st.session_state['logged_in']:
     st.markdown("""
@@ -264,7 +264,6 @@ if not st.session_state['logged_in']:
             email = st.text_input("Email", key="l_email")
             password = st.text_input("Password", type='password', key="l_pass")
             if st.button("LAUNCH TERMINAL", type="primary"):
-                # --- BACKDOOR ---
                 if email == "admin" and password == "PROTOS123":
                     st.session_state.update({'logged_in': True, 'user_email': "admin", 'expiry_date': "LIFETIME", 'user_status': 'active'})
                     st.rerun()
@@ -294,6 +293,7 @@ if not st.session_state['logged_in']:
         Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
         
         #### Detailed Features:
+        
         **1. Central Control Panel (Smart Dashboard)**
         The Investor's Headquarters.
         * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
@@ -597,4 +597,20 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             if news:
                 for n in news[:5]:
                     sent, score = analyze_sentiment([n])
-                    color = "green
+                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
+                    t_title = n.get('title', 'No Title')
+                    t_link = n.get('link', '#')
+                    st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
+            else: st.write("No news found.")
+            
+        with t4: 
+            i = target['Info']
+            c1, c2 = st.columns(2)
+            c1.metric("Beta (Volatility)", i.get('beta', '-'))
+            c2.metric("Short Ratio", i.get('shortRatio', '-'))
+            st.caption("Institutional Holders:")
+            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
+            except: st.write("Data hidden")
+
+    elif not run_scan:
+        st.info("Enter tickers above and press INITIATE SCAN.")
