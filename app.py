@@ -264,6 +264,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
+    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
@@ -276,19 +277,19 @@ if not st.session_state['logged_in']:
         * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
         * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
         * **The Evaluation Algorithm:**
-            * **Verdict:** A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * **Sniper Score (/100):** A quantitative scoring of the opportunity based on multiple factors.
-            * **Bubble Alert:** Detection of overvalued stocks (bubbles).
-            * **RVOL & RSI:** Detection of unusual volume (institutional interest) and oversold levels.
+            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
+            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
+            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
+            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
         
         **2. Deep Analysis (Deep Dive View)**
         Double-clicking opens a full "X-ray" tab for the stock:
         * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
         * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * **Return on Equity (ROE):** To check management efficiency.
-            * **Debt-to-Equity:** To assess debt burden.
-            * **Free Cash Flow (FCF):** The "truth" regarding liquidity, beyond accounting profits.
-            * **Profit Margins:** Indication of a competitive advantage (Economic Moat).
+            * *Return on Equity (ROE):* To check management efficiency.
+            * *Debt-to-Equity:* To assess debt burden.
+            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
+            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
         * **Wall Street:** Comparison with analyst forecasts and price targets.
         * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
         
@@ -308,11 +309,11 @@ if not st.session_state['logged_in']:
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
-    imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
+    imgs = ["dashboard.jpg", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
-            try: st.image(img, caption=cap, width=None) 
+            try: st.image(img, caption=cap, use_container_width=True) 
             except: st.info(f"[{cap} Preview]")
 
 # ==========================================
