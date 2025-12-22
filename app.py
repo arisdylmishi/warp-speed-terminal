@@ -74,6 +74,17 @@ st.markdown("""
             border-left: 3px solid #ff9900; 
             margin-bottom: 5px;
         }
+        
+        /* Coming Soon Badge */
+        .coming-soon {
+            background-color: #ff9900;
+            color: black;
+            padding: 5px 10px;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            vertical-align: middle;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -103,7 +114,8 @@ def calculate_smart_levels(df):
 
 def generate_ai_summary(news_items):
     """Extracts keywords and generates a summary"""
-    if not news_items: return "No sufficient data for AI analysis.", []
+    if not news_items: 
+        return "⚠️ AI could not retrieve sufficient news data for analysis. Checking external signals...", []
     
     text_corpus = ""
     valid_news = []
@@ -113,10 +125,13 @@ def generate_ai_summary(news_items):
         if title:
             text_corpus += title + " "
             valid_news.append(n)
+    
+    if not text_corpus:
+        return "⚠️ News found but lacked text content for AI processing.", valid_news
             
-    # Simple Keyword Extraction (simulating AI attention)
+    # Simple Keyword Extraction
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
     
     common = Counter(filtered).most_common(5)
@@ -129,7 +144,8 @@ def generate_ai_summary(news_items):
     tone = "BULLISH 🐂" if pol > 0.05 else "BEARISH 🐻" if pol < -0.05 else "NEUTRAL ⚖️"
     
     summary = f"AI ANALYST DETECTED **{tone}** SENTIMENT.\n"
-    summary += f"Focus Areas: {', '.join(keywords)}."
+    if keywords:
+        summary += f"Focus Areas: {', '.join(keywords)}."
     
     return summary, valid_news
 
@@ -382,7 +398,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V4.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -397,10 +413,11 @@ if not st.session_state['logged_in']:
             * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
             * *Bubble Alert:* Detection of overvalued stocks (bubbles).
             * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
+        * **Market Heatmap:** Visual Treemap showing market performance at a glance.
 
         **2. Deep Analysis (Deep Dive View)**
         Double-clicking opens a full "X-ray" tab for the stock:
-        * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
+        * **Analysis & AI Tab:** The **AI Analyst** reads news headlines, extracts keywords, and provides a sentiment summary (Bullish/Bearish).
         * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
             * *Return on Equity (ROE):* To check management efficiency.
             * *Debt-to-Equity:* To assess debt burden.
@@ -414,16 +431,16 @@ if not st.session_state['logged_in']:
         * **Price Chart with Benchmarking:**
         * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
         * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
-        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, and Support/Resistance levels.
-        * **MACD:** Indicates Momentum and trend reversals.
-        * **Volume:** Color-coded volume for analyzing buyer/seller pressure.
+        * **Smart Technicals:** Auto-drawing of **Support/Resistance** levels and **Fibonacci Retracements**.
+        * **Technical Tools:** Bollinger Bands, MACD, and color-coded Volume.
 
         **4. Management & Export Tools**
         * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
+        * **Data Export:** Instant export of all data and scores to Excel/CSV files.
+        * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
         
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>DESKTOP TERMINAL & <span class='coming-soon'>MOBILE APP COMING SOON</span></h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
     imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
@@ -498,7 +515,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
     st.divider()
 
-    # --- SCANNER ENGINE (ROBUST LOOP) ---
+    # --- SCANNER ENGINE ---
     def scan_market_safe(tickers):
         results = []
         progress_text = "Scanning assets..."
@@ -507,21 +524,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for idx, t in enumerate(tickers):
             try:
-                # Update progress
                 my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
                 
-                # Fetch Data ONE BY ONE (Safest method)
+                # Fetch Data
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
                 if df.empty or len(df) < 50: 
-                    # Fallback
                     df = yf.download(t, period="1y", progress=False, auto_adjust=True)
                     if df.empty or len(df) < 50: continue
                 
                 # Timezone cleanup
-                if df.index.tz is not None:
-                    df.index = df.index.tz_localize(None)
+                if df.index.tz is not None: df.index = df.index.tz_localize(None)
 
                 # Indicators
                 df = calculate_indicators(df)
@@ -556,8 +570,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if rsi < 30: score += 20
                 
                 vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                curr_vol = df['Volume'].iloc[-1]
-                rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
+                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
                 if rvol > 1.5: 
                     score += 10
                     reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
@@ -575,8 +588,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # AI Summary Generation
-                news = stock.news
+                # NEWS HANDLING
+                try: news = stock.news
+                except: news = []
+                
+                if not news:
+                    news = [{
+                        'title': f"Check {t} news on Google Finance (Live)",
+                        'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"
+                    }]
+                
                 ai_summary, valid_news = generate_ai_summary(news)
                 
                 results.append({
@@ -626,13 +647,14 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), width="stretch", hide_index=True)
         
-        # --- NEW: MARKET HEATMAP ---
+        # --- MARKET HEATMAP ---
         if len(st.session_state['data']) > 1:
             st.markdown("### 🗺️ MARKET HEATMAP")
             map_data = []
             for d in st.session_state['data']:
-                mcap = d['Info'].get('marketCap', 1000000)
-                if mcap is None: mcap = 1000000
+                mcap = d['Info'].get('marketCap', 1000000) # fallback
+                if not isinstance(mcap, (int, float)): mcap = 1000000
+                
                 map_data.append({
                     "Ticker": d['Ticker'],
                     "Market Cap": mcap,
@@ -755,7 +777,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("### 🧠 AI ANALYST BRIEFING")
             st.markdown(f"<div class='ai-box'>{target['AISummary']}</div>", unsafe_allow_html=True)
             
-            # --- NEW: CEO REPORT BUTTON ---
+            # CEO REPORT BUTTON
             report_text = generate_ceo_report(target)
             st.download_button(
                 label="📄 DOWNLOAD INTELLIGENCE REPORT",
