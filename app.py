@@ -34,7 +34,7 @@ authenticator = stauth.Authenticate(
 # ==========================================
 
 # Εμφάνιση του Login Widget στο Sidebar ή στο κέντρο
-name, authentication_status, username = authenticator.login('Login', 'main')
+name, authentication_status, username = authenticator.login(location='main')
 
 if authentication_status is False:
     st.error('Λάθος όνομα χρήστη ή κωδικός.')
