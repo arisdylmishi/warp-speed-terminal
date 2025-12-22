@@ -532,4 +532,76 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             
-            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
+            
+            # Candlesticks
+            fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
+            # BB
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
+            
+            # Oracle Ghost
+            if ghost is not None:
+                last_date = hist.index[-1]
+                future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
+                fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
+
+            # MACD
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
+            fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
+
+            fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # --- VERDICT EXPLANATION BOX ---
+            st.markdown("#### 🧠 VERDICT LOGIC")
+            for reason in target['Reasons']:
+                st.markdown(f"<div class='reason-box'>{reason}</div>", unsafe_allow_html=True)
+            
+        with t2: # Fundamentals & Wall St
+            i = target['Info']
+            
+            st.markdown("##### 🏦 WALL STREET")
+            w1, w2 = st.columns(2)
+            w1.metric("Consensus", target['Consensus'])
+            w2.metric("Target Price", f"${target['TargetPrice']}" if target['TargetPrice'] != 'N/A' else 'N/A')
+            
+            st.divider()
+            st.markdown("##### 📊 KEY METRICS")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Market Cap", format_large_number(i.get('marketCap')))
+            c1.metric("P/E Ratio", i.get('trailingPE', '-'))
+            
+            c2.metric("Dividend Yield", f"{i.get('dividendYield', 0)*100:.2f}%" if i.get('dividendYield') else '-')
+            c2.metric("PEG Ratio", i.get('pegRatio', '-'))
+            
+            c3.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
+            c3.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
+            
+            c4.metric("Free Cash Flow", format_large_number(i.get('freeCashflow')))
+            c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
+            
+        with t3: # News AI
+            st.write("Recent News Sentiment:")
+            if target['News']:
+                for n in target['News'][:5]:
+                    sent, score = analyze_sentiment([n])
+                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
+                    t_title = n.get('title', 'No Title')
+                    t_link = n.get('link', '#')
+                    st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
+            else: st.write("No news found.")
+            
+        with t4: # Risk
+            i = target['Info']
+            c1, c2 = st.columns(2)
+            c1.metric("Beta (Volatility)", i.get('beta', '-'))
+            c2.metric("Short Ratio", i.get('shortRatio', '-'))
+            st.caption("Institutional Holders:")
+            # Re-fetch object here to avoid caching errors
+            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
+            except: st.write("Data hidden")
+
+    elif not run_scan:
+        st.info("Enter tickers above and press INITIATE SCAN.")
