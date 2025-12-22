@@ -93,7 +93,7 @@ st.markdown("""
         }
         
         /* Links Styling */
-        a { color: #00ccff !important; text-decoration: none; font-weight: bold; }
+        a { color: #00ccff !important; text-decoration: none; font-weight: bold; font-family: 'Courier New'; }
         a:hover { text-decoration: underline; color: #ff9900 !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -166,7 +166,7 @@ def generate_ai_summary(news_items):
             
     # If we have data, analyze it
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why', 'update']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
     
     common = Counter(filtered).most_common(5)
@@ -514,7 +514,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v7.1 (Ultimate)")
+        st.caption("v7.2 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -623,17 +623,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # NEWS HANDLING
-                try: news = stock.news
-                except: news = []
+                # NEWS HANDLING (THE FIX FOR LINKS & EMPTY LISTS)
+                try: 
+                    raw_news = stock.news
+                    if not raw_news: raise ValueError("Empty news")
+                except: 
+                    # FORCE MANUAL LINKS if API fails
+                    raw_news = [
+                        {'title': f"Latest News for {t} (Google Finance)", 'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"},
+                        {'title': f"Latest News for {t} (Yahoo Finance)", 'link': f"https://finance.yahoo.com/quote/{t}/news"}
+                    ]
                 
-                if not news:
-                    news = [{
-                        'title': f"Check {t} news on Google Finance (Live)",
-                        'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"
-                    }]
-                
-                ai_summary, valid_news = generate_ai_summary(news)
+                ai_summary, valid_news = generate_ai_summary(raw_news)
                 
                 results.append({
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
@@ -846,7 +847,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
                     # Make link clickable and blue
-                    st.markdown(f"• <a href='{t_link}' target='_blank' style='color: #00ccff; text-decoration: none;'>{t_title}</a>", unsafe_allow_html=True)
+                    st.markdown(f"• <a href='{t_link}' target='_blank'>{t_title}</a>", unsafe_allow_html=True)
             else: st.write("No news found.")
             
         with t4: 
