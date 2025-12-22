@@ -56,6 +56,7 @@ st.markdown("""
             margin-bottom: 5px;
             font-family: 'Courier New', monospace;
             font-size: 0.9rem;
+            color: #eee;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -109,7 +110,7 @@ def analyze_sentiment(news_items):
     return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm (Optimized for visibility)"""
+    """The Oracle Ghost Algorithm"""
     if len(hist_series) < (lookback * 4): return None
     
     current_pattern = hist_series.iloc[-lookback:].values
@@ -121,7 +122,6 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
     best_idx = -1
     search_range = len(hist_series) - lookback - projection - 1
     
-    # Check every 2 steps to find patterns better
     for i in range(0, search_range, 2): 
         candidate = hist_series.iloc[i : i+lookback].values
         if candidate.max() == candidate.min(): continue
@@ -133,7 +133,6 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
                 best_idx = i
         except: continue
 
-    # Lowered threshold to 0.60 so it appears more often
     if best_score > 0.60:
         ghost = hist_series.iloc[best_idx : best_idx + lookback + projection].copy()
         scale_factor = hist_series.iloc[-1] / ghost.iloc[lookback-1]
@@ -143,10 +142,12 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
 
 def format_large_number(num):
     if not num or isinstance(num, str): return "N/A"
-    if num >= 1e12: return f"${num/1e12:.2f}T"
-    if num >= 1e9: return f"${num/1e9:.2f}B"
-    if num >= 1e6: return f"${num/1e6:.2f}M"
-    return f"${num:.2f}"
+    try:
+        if num >= 1e12: return f"${num/1e12:.2f}T"
+        if num >= 1e9: return f"${num/1e9:.2f}B"
+        if num >= 1e6: return f"${num/1e6:.2f}M"
+        return f"${num:.2f}"
+    except: return "N/A"
 
 # ==========================================
 # --- 3. DATABASE (LOGIN SYSTEM) ---
@@ -290,12 +291,11 @@ if not st.session_state['logged_in']:
         #### Detailed Features:
         **1. Central Control Panel (Smart Dashboard)**
         * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
-        * **Verdict:** Clear BUY/SELL signals based on 50/200 MA and RSI.
-        * **Sniper Score (/100):** Quantitative scoring of the opportunity.
+        * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
         
-        **2. Deep Analysis (Deep Dive View)**
-        * **Wall Street:** Analyst Price Targets and Consensus.
-        * **Fundamentals:** Market Cap, Dividend Yield, ROE, FCF.
+        **2. Deep Analysis**
+        * **AI Tab:** NLP news sentiment (Bullish/Bearish).
+        * **Fundamentals:** P/E, PEG, ROE, FCF, Moat.
         * **Risk:** Beta, Short Float, Institutional Holders.
         
         **3. Advanced Charting & "The Oracle"**
@@ -308,13 +308,12 @@ if not st.session_state['logged_in']:
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
-    # Using explicit file names as requested (PNG)
     imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
             try: st.image(img, caption=cap, use_container_width=True) 
-            except: st.info(f"[{cap} Preview - Check {img} in Repo]")
+            except: st.info(f"[{cap} Preview]")
             
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
@@ -351,7 +350,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (Robust Error Handling) ---
+    # --- MACRO BAR ---
     with st.container():
         try:
             macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
@@ -361,24 +360,21 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
             
             if not m_data.empty and len(m_data) >= 2:
-                last_row = m_data.iloc[-1]
-                prev_row = m_data.iloc[-2]
-                
+                last = m_data.iloc[-1]
+                prev = m_data.iloc[-2]
                 for idx, (sym, name) in enumerate(names.items()):
-                    val = last_row.get(sym, np.nan)
-                    prev_val = prev_row.get(sym, np.nan)
-                    
-                    if pd.isna(val) or pd.isna(prev_val) or prev_val == 0:
-                        cols = [mc1, mc2, mc3, mc4]
-                        cols[idx].metric(name, "N/A", "N/A")
-                    else:
-                        chg = ((val - prev_val) / prev_val) * 100
+                    val = last.get(sym, np.nan)
+                    pval = prev.get(sym, np.nan)
+                    if pd.notna(val) and pd.notna(pval) and pval != 0:
+                        chg = ((val - pval) / pval) * 100
                         cols = [mc1, mc2, mc3, mc4]
                         cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
+                    else:
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, "N/A", "N/A")
             else:
                 st.caption("Macro data unavailable (Market Closed/API Limit)")
-        except Exception as e: 
-            st.caption(f"Macro Data Error: {str(e)}")
+        except: st.caption("Macro Data Offline")
             
     st.divider()
 
@@ -397,7 +393,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     if t not in data.columns.levels[0]: continue
                     df = data[t].copy()
                 else:
-                    df = data.copy() # If single ticker, data is already the dataframe
+                    df = data.copy() 
                 
                 if df.empty or len(df) < 50: continue
                 
@@ -479,7 +475,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with c2: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if run_scan:
-        ticks = [t.strip().upper() for t in query.replace(",", " ").split()]
+        ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
         if ticks:
             st.session_state['data'] = scan_market(ticks)
         else:
@@ -528,11 +524,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "NEWS AI", "RISK"])
         
-        with t1: # PLOTLY CHART
+        with t1: 
+            # PLOTLY CHART - SPLIT LONG LINE
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             
-            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
+            fig = make_subplots(
+                rows=2, 
+                cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.05, 
+                row_heights=[0.7, 0.3]
+            )
             
             # Candlesticks
             fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
@@ -554,18 +557,23 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
             st.plotly_chart(fig, use_container_width=True)
             
-            # --- VERDICT EXPLANATION BOX ---
+            # --- VERDICT EXPLANATION BOX (FIXED KEYERROR) ---
             st.markdown("#### 🧠 VERDICT LOGIC")
-            for reason in target['Reasons']:
-                st.markdown(f"<div class='reason-box'>{reason}</div>", unsafe_allow_html=True)
+            # Use .get() to prevent crashes if 'Reasons' is missing in old cached data
+            reasons = target.get('Reasons', []) 
+            if reasons:
+                for reason in reasons:
+                    st.markdown(f"<div class='reason-box'>{reason}</div>", unsafe_allow_html=True)
+            else:
+                st.info("No specific triggers for this asset.")
             
         with t2: # Fundamentals & Wall St
             i = target['Info']
             
             st.markdown("##### 🏦 WALL STREET")
             w1, w2 = st.columns(2)
-            w1.metric("Consensus", target['Consensus'])
-            w2.metric("Target Price", f"${target['TargetPrice']}" if target['TargetPrice'] != 'N/A' else 'N/A')
+            w1.metric("Consensus", target.get('Consensus', 'N/A'))
+            w2.metric("Target Price", f"${target.get('TargetPrice', 'N/A')}")
             
             st.divider()
             st.markdown("##### 📊 KEY METRICS")
@@ -584,8 +592,10 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         with t3: # News AI
             st.write("Recent News Sentiment:")
-            if target['News']:
-                for n in target['News'][:5]:
+            # Use .get() for safety
+            news = target.get('News', [])
+            if news:
+                for n in news[:5]:
                     sent, score = analyze_sentiment([n])
                     color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
                     t_title = n.get('title', 'No Title')
