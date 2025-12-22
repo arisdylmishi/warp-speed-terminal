@@ -71,6 +71,9 @@ st.markdown("""
 # ==========================================
 
 def calculate_indicators(hist):
+    # Ensure columns exist
+    if 'Close' not in hist.columns: return hist
+    
     # RSI
     delta = hist['Close'].diff()
     gain = delta.where(delta > 0, 0)
@@ -114,9 +117,7 @@ def analyze_sentiment(news_items):
     return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm"""
     if len(hist_series) < (lookback * 4): return None
-    
     current_pattern = hist_series.iloc[-lookback:].values
     c_min, c_max = current_pattern.min(), current_pattern.max()
     if c_max == c_min: return None
@@ -154,7 +155,7 @@ def format_large_number(num):
     except: return "N/A"
 
 # ==========================================
-# --- 3. DATABASE (LOGIN SYSTEM) ---
+# --- 3. DATABASE (LOGIN) ---
 # ==========================================
 def init_db():
     conn = sqlite3.connect('users.db')
@@ -222,7 +223,7 @@ def check_subscription_validity(email, current_expiry_str):
 init_db()
 
 # ==========================================
-# --- 4. SESSION & AUTH FLOW ---
+# --- 4. SESSION ---
 # ==========================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
@@ -244,7 +245,7 @@ if "payment_success" in query_params and st.session_state['logged_in']:
         st.error(f"Activation Error: {e}")
 
 # ==========================================
-# --- 5. VIEW: LANDING PAGE ---
+# --- 5. LANDING PAGE ---
 # ==========================================
 if not st.session_state['logged_in']:
     st.markdown("""
@@ -286,47 +287,27 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
-        Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
+        Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence.
         
         #### Detailed Features:
-        
         **1. Central Control Panel (Smart Dashboard)**
-        The Investor's Headquarters.
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
-        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
-        * **The Evaluation Algorithm:**
-            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
+        * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
         
-        **2. Deep Analysis (Deep Dive View)**
-        Double-clicking opens a full "X-ray" tab for the stock:
-        * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
-        * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * *Return on Equity (ROE):* To check management efficiency.
-            * *Debt-to-Equity:* To assess debt burden.
-            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
-            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
-        * **Wall Street:** Comparison with analyst forecasts and price targets.
-        * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
+        **2. Deep Analysis**
+        * **AI Tab:** NLP news sentiment (Bullish/Bearish).
+        * **Fundamentals:** P/E, PEG, ROE, FCF, Moat.
+        * **Risk:** Beta, Short Float, Institutional Holders.
         
         **3. Advanced Charting & "The Oracle"**
-        Three synchronized charts with selectable timeframes (1M, 3M, 6M, 1Y, MAX):
-        * **Price Chart with Benchmarking:**
-        * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
-        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
-        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, and Support/Resistance levels.
-        * **MACD:** Indicates Momentum and trend reversals.
-        * **Volume:** Color-coded volume for analyzing buyer/seller pressure.
+        * **Oracle Projection:** Algorithm identifying past patterns (Ghost) to forecast future.
+        * **SPY Overlay:** Benchmarking against S&P 500.
         
-        **4. Management & Export Tools**
-        * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
+        **4. Management**
+        * **Correlation Matrix** & **Data Export**.
         """)
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
@@ -341,7 +322,7 @@ if not st.session_state['logged_in']:
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
-# --- 6. VIEW: PAYWALL ---
+# --- 6. PAYWALL ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
     st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
@@ -357,12 +338,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
     
-    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
 # ==========================================
-# --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
+# --- 7. TERMINAL APP ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
     
@@ -399,7 +379,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
     st.divider()
 
-    # --- SCANNER ENGINE (ROBUST LOOP) ---
+    # --- SCANNER ENGINE (DEBUG MODE) ---
     def scan_market_safe(tickers):
         results = []
         progress_text = "Scanning assets..."
@@ -408,24 +388,37 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for idx, t in enumerate(tickers):
             try:
-                # Update progress
+                # Progress
                 my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
                 
-                # Fetch Data ONE BY ONE (Safest method)
+                # Fetch Data
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
-                if df.empty or len(df) < 50: 
-                    # Fallback
-                    df = yf.download(t, period="1y", progress=False, auto_adjust=True)
-                    if df.empty or len(df) < 50: continue
+                if df.empty:
+                    st.error(f"⚠️ {t}: No data found via history(). Skipping.")
+                    continue
+                
+                # FIX: Remove Timezone to prevent math errors
+                df.index = df.index.tz_localize(None)
+                
+                if len(df) < 50:
+                    st.warning(f"⚠️ {t}: Not enough data (<50 days). Skipping.")
+                    continue
                 
                 # Indicators
                 df = calculate_indicators(df)
                 curr = df['Close'].iloc[-1]
                 prev = df['Close'].iloc[-2]
                 chg = ((curr - prev)/prev)*100
+                
+                # Check for RSI existence
+                if 'RSI' not in df.columns:
+                    st.warning(f"⚠️ {t}: Could not calculate RSI.")
+                    continue
+                    
                 rsi = df['RSI'].iloc[-1]
+                if pd.isna(rsi): rsi = 50.0 # Default fallback
                 
                 # Verdict
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
@@ -441,7 +434,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 if rsi < 30: 
                     verdict = "STRONG BUY"
-                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
+                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold")
                 
                 # Sniper Score
                 score = 50
@@ -466,7 +459,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 peg = info.get('pegRatio', 'N/A')
                 target_price = info.get('targetMeanPrice', 'N/A')
-                consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
+                consensus = info.get('recommendationKey', 'N/A')
+                if consensus: consensus = consensus.upper().replace('_', ' ')
+                else: consensus = "N/A"
                 
                 # Sentiment
                 news = stock.news
@@ -478,7 +473,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "History": df, "Info": info, "News": news, "Reasons": reasons,
                     "TargetPrice": target_price, "Consensus": consensus
                 })
-            except: continue
+            except Exception as e:
+                st.error(f"❌ Error scanning {t}: {str(e)}")
+                continue
             
         my_bar.empty()
         return results
@@ -494,7 +491,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         if ticks:
             st.session_state['data'] = scan_market_safe(ticks)
             if not st.session_state['data']:
-                st.error("No data found. Try standard US Tickers (e.g. AAPL, NVDA).")
+                st.warning("No valid data found. Check errors above.")
         else:
             st.warning("Please enter a symbol.")
 
@@ -573,23 +570,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         with t2: 
             i = target['Info']
-            
             st.markdown("##### 🏦 WALL STREET")
             w1, w2 = st.columns(2)
-            w1.metric("Consensus", str(target.get('Consensus', 'N/A')).upper())
+            w1.metric("Consensus", str(target.get('Consensus', 'N/A')))
             w2.metric("Target Price", f"${target.get('TargetPrice', 'N/A')}")
             
             st.divider()
-            st.markdown("##### 📊 KEY METRICS")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Market Cap", format_large_number(i.get('marketCap')))
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
             c2.metric("Dividend Yield", f"{i.get('dividendYield', 0)*100:.2f}%" if i.get('dividendYield') else '-')
-            c2.metric("PEG Ratio", i.get('pegRatio', '-'))
             c3.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
-            c3.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
             c4.metric("Free Cash Flow", format_large_number(i.get('freeCashflow')))
-            c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
             
         with t3: 
             st.write("Recent News Sentiment:")
