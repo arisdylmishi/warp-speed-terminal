@@ -1,12 +1,14 @@
 import streamlit as st
+import sqlite3
+import hashlib
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import time
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from textblob import TextBlob
-import time
 
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
@@ -65,7 +67,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. LOGIC ---
+# --- 2. ADVANCED LOGIC ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -394,7 +396,10 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
-                if df.empty or len(df) < 50: continue
+                if df.empty or len(df) < 50: 
+                    # Fallback try
+                    df = yf.download(t, period="1y", progress=False, auto_adjust=True)
+                    if df.empty or len(df) < 50: continue
                 
                 # Indicators
                 df = calculate_indicators(df)
