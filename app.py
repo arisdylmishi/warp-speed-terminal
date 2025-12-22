@@ -23,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Bloomberg-style Dark Mode
+# Bloomberg-style Dark Mode with Neon Accents
 st.markdown("""
     <style>
         .stApp { background-color: #000000; color: #e0e0e0; }
@@ -37,6 +37,7 @@ st.markdown("""
             color: #00ffea; 
             font-family: 'Courier New', monospace;
             font-weight: bold;
+            text-shadow: 0px 0px 5px rgba(0, 255, 234, 0.5);
         }
         div[data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
         
@@ -56,52 +57,86 @@ st.markdown("""
             background-color: #ff9900;
             color: #000;
             border-color: #ff9900;
+            box-shadow: 0px 0px 10px #ff9900;
         }
         
         /* Custom Boxes */
         .ai-box {
-            background-color: #111;
+            background-color: #0f1216;
             padding: 15px;
             border-left: 4px solid #00ffea;
             margin-bottom: 10px;
             font-family: 'Courier New', monospace;
             color: #eee;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         
         .reason-box {
-            background-color: #111; 
+            background-color: #1a1a1a; 
             padding: 10px; 
             border-left: 3px solid #ff9900; 
             margin-bottom: 5px;
+            font-size: 0.9em;
         }
         
-        /* Coming Soon Badge */
         .coming-soon {
             background-color: #ff9900;
             color: black;
-            padding: 5px 10px;
+            padding: 2px 8px;
             font-weight: bold;
             border-radius: 4px;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             vertical-align: middle;
+            margin-left: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (AI & MATH) ---
+# --- 2. ADVANCED LOGIC (MATH, AI, MONTE CARLO) ---
 # ==========================================
+
+def calculate_monte_carlo(df, days=30, simulations=1000):
+    """Generates Probabilistic Price Cones"""
+    try:
+        last_price = df['Close'].iloc[-1]
+        # Calculate daily returns and volatility
+        returns = df['Close'].pct_change().dropna()
+        daily_vol = returns.std()
+        
+        simulation_df = pd.DataFrame()
+        
+        # Run simulations
+        for x in range(simulations):
+            count = 0
+            price_series = []
+            price = last_price * (1 + np.random.normal(0, daily_vol))
+            price_series.append(price)
+            
+            for y in range(days):
+                if count == 29: break
+                price = price_series[count] * (1 + np.random.normal(0, daily_vol))
+                price_series.append(price)
+                count += 1
+            
+            simulation_df[x] = price_series
+            
+        # Get percentiles
+        upper_bound = simulation_df.quantile(0.95, axis=1) # Bull case
+        lower_bound = simulation_df.quantile(0.05, axis=1) # Bear case
+        avg_path = simulation_df.mean(axis=1) # Base case
+        
+        return upper_bound, lower_bound, avg_path
+    except: return None, None, None
 
 def calculate_smart_levels(df):
     """Calculates Support, Resistance and Fib Levels"""
     if df.empty: return None, None, {}
     
-    # Recent High/Low (last 6 months approx)
     recent = df.iloc[-126:] 
     high_price = recent['High'].max()
     low_price = recent['Low'].min()
     
-    # Fibonacci
     diff = high_price - low_price
     fibs = {
         "Fib 0.236": high_price - (diff * 0.236),
@@ -109,11 +144,9 @@ def calculate_smart_levels(df):
         "Fib 0.5 (Golden)": high_price - (diff * 0.5),
         "Fib 0.618": high_price - (diff * 0.618)
     }
-    
     return high_price, low_price, fibs
 
 def generate_ai_summary(news_items):
-    """Extracts keywords and generates a summary"""
     if not news_items: 
         return "⚠️ AI could not retrieve sufficient news data for analysis. Checking external signals...", []
     
@@ -129,15 +162,13 @@ def generate_ai_summary(news_items):
     if not text_corpus:
         return "⚠️ News found but lacked text content for AI processing.", valid_news
             
-    # Simple Keyword Extraction
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
     
     common = Counter(filtered).most_common(5)
     keywords = [c[0].upper() for c in common]
     
-    # Sentiment Calculation
     blob = TextBlob(text_corpus)
     pol = blob.sentiment.polarity
     
@@ -145,12 +176,11 @@ def generate_ai_summary(news_items):
     
     summary = f"AI ANALYST DETECTED **{tone}** SENTIMENT.\n"
     if keywords:
-        summary += f"Focus Areas: {', '.join(keywords)}."
+        summary += f"Dominant Themes: {', '.join(keywords)}."
     
     return summary, valid_news
 
 def generate_ceo_report(target_data):
-    """Generates a text report for download"""
     t = target_data
     report = f"""
 =======================================================
@@ -196,7 +226,6 @@ CONFIDENTIAL - GENERATED BY WARP SPEED TERMINAL
 
 def calculate_indicators(hist):
     if hist.empty: return hist
-    # RSI
     delta = hist['Close'].diff()
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
@@ -205,13 +234,11 @@ def calculate_indicators(hist):
     rs = avg_gain / avg_loss
     hist['RSI'] = 100 - (100 / (1 + rs))
     
-    # MACD
     exp1 = hist['Close'].ewm(span=12, adjust=False).mean()
     exp2 = hist['Close'].ewm(span=26, adjust=False).mean()
     hist['MACD'] = exp1 - exp2
     hist['Signal'] = hist['MACD'].ewm(span=9, adjust=False).mean()
     
-    # Bollinger Bands
     hist['SMA20'] = hist['Close'].rolling(window=20).mean()
     hist['STD20'] = hist['Close'].rolling(window=20).std()
     hist['UpperBB'] = hist['SMA20'] + (hist['STD20'] * 2)
@@ -398,7 +425,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V4.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V5.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -406,37 +433,35 @@ if not st.session_state['logged_in']:
 
         **1. Central Control Panel (Smart Dashboard)**
         The Investor's Headquarters.
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
-        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil).
+        * **Smart Watchlist & Memory:** The user inputs tickers, and the system automatically saves them.
         * **The Evaluation Algorithm:**
             * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
             * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
+            * *Bubble Alert:* Detection of overvalued stocks.
+            * *RVOL & RSI:* Detection of unusual volume and oversold levels.
         * **Market Heatmap:** Visual Treemap showing market performance at a glance.
 
         **2. Deep Analysis (Deep Dive View)**
-        Double-clicking opens a full "X-ray" tab for the stock:
+        Double-clicking opens a full "X-ray" tab:
         * **Analysis & AI Tab:** The **AI Analyst** reads news headlines, extracts keywords, and provides a sentiment summary (Bullish/Bearish).
-        * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * *Return on Equity (ROE):* To check management efficiency.
-            * *Debt-to-Equity:* To assess debt burden.
-            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
-            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
+        * **Fundamentals Tab (Enriched):** Valuation metrics (P/E, PEG) plus critical quality indicators:
+            * *Return on Equity (ROE) & Debt-to-Equity.*
+            * *Free Cash Flow (FCF) & Profit Margins (Moat).*
         * **Wall Street:** Comparison with analyst forecasts and price targets.
-        * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
+        * **Risk Tab:** Volatility (Beta), Short Float, and Institutional Holders.
 
-        **3. Advanced Charting & "The Oracle"**
-        Three synchronized charts with selectable timeframes (1M, 3M, 6M, 1Y, MAX):
+        **3. Advanced Charting & "The Event Horizon"**
+        Three synchronized charts with selectable timeframes:
         * **Price Chart with Benchmarking:**
-        * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
-        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
+        * **Oracle Projection:** Algorithm identifying past patterns (Ghost) to forecast future.
+        * **Monte Carlo Simulation:** A statistical **"Event Horizon"** cloud that projects 1,000 future scenarios to visualize potential upside/downside risk.
+        * **SPY Overlay:** Benchmarking against S&P 500.
         * **Smart Technicals:** Auto-drawing of **Support/Resistance** levels and **Fibonacci Retracements**.
         * **Technical Tools:** Bollinger Bands, MACD, and color-coded Volume.
 
         **4. Management & Export Tools**
-        * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files.
+        * **Correlation Matrix:** Heatmap to check correlations between portfolio stocks.
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
         
@@ -480,6 +505,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
+        st.caption("v5.0 (Oracle Edition)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -692,7 +718,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
         target = next(d for d in st.session_state['data'] if d['Ticker'] == sel_t)
         
-        t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK"])
+        t1, t2, t3, t4 = st.tabs(["CHART & EVENT HORIZON", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK"])
         
         with t1: 
             # PLOTLY CHART
@@ -700,6 +726,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             ghost = find_oracle_pattern(hist['Close'])
             spy = get_spy_data()
             high_lvl, low_lvl, fibs = calculate_smart_levels(hist)
+            upper, lower, avg = calculate_monte_carlo(hist)
             
             fig = make_subplots(
                 rows=2, 
@@ -728,6 +755,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
                 fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
+
+            # MONTE CARLO (EVENT HORIZON)
+            if upper is not None:
+                last_date = hist.index[-1]
+                future_dates = [last_date + timedelta(days=i) for i in range(30)]
+                fig.add_trace(go.Scatter(x=future_dates, y=upper, line=dict(color='green', width=0), showlegend=False), row=1, col=1)
+                fig.add_trace(go.Scatter(x=future_dates, y=lower, line=dict(color='red', width=0), fill='tonexty', fillcolor='rgba(0, 255, 0, 0.1)', name='Probability Cloud'), row=1, col=1)
 
             # SMART TECHNICALS
             if high_lvl:
