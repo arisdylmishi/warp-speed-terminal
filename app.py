@@ -12,6 +12,8 @@ from plotly.subplots import make_subplots
 from textblob import TextBlob
 from collections import Counter
 import re
+import requests
+import xml.etree.ElementTree as ET
 
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
@@ -99,8 +101,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (AI & MATH) ---
+# --- 2. ADVANCED LOGIC (AI, MATH & NEWS) ---
 # ==========================================
+
+def get_google_news(ticker):
+    """Fetches real news from Google RSS to bypass Yahoo blocks"""
+    try:
+        # Request Google News RSS Feed
+        url = f"https://news.google.com/rss/search?q={ticker}+stock+news&hl=en-US&gl=US&ceid=US:en"
+        response = requests.get(url, timeout=5)
+        
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            news_items = []
+            # Parse XML
+            for item in root.findall('./channel/item')[:5]: # Top 5 news
+                title = item.find('title').text
+                link = item.find('link').text
+                news_items.append({'title': title, 'link': link})
+            return news_items
+        else:
+            return []
+    except:
+        return []
 
 def calculate_monte_carlo(df, days=30, simulations=1000):
     """Generates Probabilistic Price Cones"""
@@ -147,11 +170,10 @@ def calculate_smart_levels(df):
     return high_price, low_price, fibs
 
 def generate_ai_summary(news_items):
-    """Generates a cautious AI summary"""
+    """Generates a dynamic AI summary from Google News"""
     text_corpus = ""
     valid_news = []
     
-    # Process news if available
     if news_items:
         for n in news_items:
             title = n.get('title', '')
@@ -161,12 +183,12 @@ def generate_ai_summary(news_items):
                 valid_news.append({'title': title, 'link': link})
     
     # Cautious Fallback Logic
-    if not text_corpus or len(text_corpus) < 50:
-        return "⚠️ **ANALYST NOTE:** Immediate news flow is currently sparse. While technical indicators may show direction, the lack of recent fundamental catalysts suggests **increased volatility risk**. Recommended strategy: **Wait for confirmation** or enter with tight stops.", valid_news
+    if not text_corpus or len(text_corpus) < 20:
+        return "⚠️ **ANALYST NOTE:** Real-time news feed is quiet. While technical indicators suggest a direction, **exercise caution**. The AI suggests waiting for a catalyst or strictly following the technical levels (Support/Resistance).", valid_news
             
     # If we have data, analyze it
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why', 'update']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why', 'update', 'share', 'price']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
     
     common = Counter(filtered).most_common(5)
@@ -175,12 +197,18 @@ def generate_ai_summary(news_items):
     blob = TextBlob(text_corpus)
     pol = blob.sentiment.polarity
     
-    tone = "BULLISH 🐂" if pol > 0.05 else "BEARISH 🐻" if pol < -0.05 else "NEUTRAL ⚖️"
+    # Verdict Logic based on text
+    if pol > 0.1: tone = "BULLISH 🐂"
+    elif pol < -0.1: tone = "BEARISH 🐻"
+    else: tone = "NEUTRAL / MIXED ⚖️"
     
-    summary = f"AI ANALYST DETECTED **{tone}** SENTIMENT.\n"
+    summary = f"AI ANALYST SCAN: **{tone}**\n"
+    summary += "Based on latest Google News analysis. "
     if keywords:
-        summary += f"Key Drivers: {', '.join(keywords)}. "
-    summary += "Monitor volume for confirmation."
+        summary += f"Key Topics: {', '.join(keywords)}. "
+    
+    if tone == "NEUTRAL / MIXED ⚖️":
+        summary += "Market direction is unclear from headlines. Rely on Technicals."
     
     return summary, valid_news
 
@@ -474,7 +502,7 @@ if not st.session_state['logged_in']:
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
     
-    # --- SCREENSHOTS WITH SNEAK PEEK BADGE ---
+    # --- SCREENSHOTS WITH "COMING SOON" BADGE ---
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
     imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
@@ -487,6 +515,27 @@ if not st.session_state['logged_in']:
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
+# --- 6. VIEW: PAYWALL ---
+# ==========================================
+elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
+    st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
+    links = {
+        "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
+        "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
+        "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
+        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
+    }
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch")
+    with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], width="stretch")
+    with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
+    with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
+    
+    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    st.divider()
+    if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
+
+# ==========================================
 # --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
@@ -494,7 +543,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v8.0 (Ultimate)")
+        st.caption("v9.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -603,17 +652,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # NEWS HANDLING (SMART LINKS)
-                try: news = stock.news
-                except: news = []
-                
-                if not news:
-                    news = [
-                        {'title': f"Latest News for {t} (Google Finance)", 'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"},
-                        {'title': f"Latest News for {t} (Yahoo Finance)", 'link': f"https://finance.yahoo.com/quote/{t}/news"}
-                    ]
-                
-                ai_summary, valid_news = generate_ai_summary(news)
+                # NEWS HANDLING (GOOGLE NEWS INTEGRATION)
+                news_items = get_google_news(t)
+                ai_summary, valid_news = generate_ai_summary(news_items)
                 
                 results.append({
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
