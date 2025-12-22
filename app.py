@@ -92,14 +92,8 @@ st.markdown("""
             letter-spacing: 1px;
         }
         
-        .explanation-text {
-            font-size: 0.9rem;
-            color: #aaa;
-            background: #111;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #333;
-        }
+        a { color: #00ccff !important; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; color: #ff9900 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -152,22 +146,24 @@ def calculate_smart_levels(df):
     return high_price, low_price, fibs
 
 def generate_ai_summary(news_items):
-    if not news_items: 
-        return "⚠️ AI could not retrieve sufficient news data. Checking external signals...", []
-    
+    """Generates a cautious AI summary"""
     text_corpus = ""
     valid_news = []
     
-    for n in news_items:
-        title = n.get('title', '')
-        link = n.get('link', '')
-        if title:
-            text_corpus += title + " "
-            valid_news.append({'title': title, 'link': link})
+    # Process news if available
+    if news_items:
+        for n in news_items:
+            title = n.get('title', '')
+            link = n.get('link', '')
+            if title:
+                text_corpus += title + " "
+                valid_news.append({'title': title, 'link': link})
     
-    if not text_corpus:
-        return "⚠️ News found but lacked text content.", valid_news
+    # Cautious Fallback Logic
+    if not text_corpus or len(text_corpus) < 50:
+        return "⚠️ **ANALYST NOTE:** Immediate news flow is currently sparse. While technical indicators may show direction, the lack of recent fundamental catalysts suggests **increased volatility risk**. Recommended strategy: **Wait for confirmation** or enter with tight stops.", valid_news
             
+    # If we have data, analyze it
     words = re.findall(r'\w+', text_corpus.lower())
     ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
@@ -182,7 +178,8 @@ def generate_ai_summary(news_items):
     
     summary = f"AI ANALYST DETECTED **{tone}** SENTIMENT.\n"
     if keywords:
-        summary += f"Dominant Themes: {', '.join(keywords)}."
+        summary += f"Key Drivers: {', '.join(keywords)}. "
+    summary += "Monitor volume for confirmation."
     
     return summary, valid_news
 
@@ -431,9 +428,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    
-    # --- FULL SYSTEM DESCRIPTION (UPDATED) ---
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V6.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V7.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -477,9 +472,8 @@ if not st.session_state['logged_in']:
         * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
-    
-    # --- SCREENSHOTS WITH "COMING SOON" BADGE ---
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>DESKTOP TERMINAL & <span class='coming-soon'>MOBILE APP COMING SOON</span></h2><br>", unsafe_allow_html=True)
+        
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>DESKTOP TERMINAL & <span class='coming-soon'>APP COMING SOON</span></h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
     imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
@@ -519,7 +513,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v6.0 (Oracle Edition)")
+        st.caption("v7.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -628,13 +622,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # NEWS HANDLING
+                # NEWS HANDLING (SMART LINKS)
                 try: news = stock.news
                 except: news = []
                 
                 if not news:
                     news = [{
-                        'title': f"Latest News for {t} (Google Finance)",
+                        'title': f"Check {t} news on Google Finance (Live)",
                         'link': f"https://www.google.com/finance/quote/{t}:NASDAQ"
                     }]
                 
@@ -653,6 +647,14 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         return results
 
     # --- MAIN INTERFACE ---
+    with st.expander("📘 SYSTEM MANUAL & LEGEND", expanded=False):
+        st.markdown("""
+        * **Sniper Score:** Proprietary rating (0-100) combining Technicals, Fundamentals, and Sentiment. >70 is Strong.
+        * **RVOL:** Relative Volume. Values > 1.5 indicate unusual institutional activity.
+        * **Oracle Ghost:** A projection line based on historical pattern matching.
+        * **Event Horizon:** Monte Carlo simulation showing probable future price range (Best/Worst Case).
+        """)
+
     with st.form("scanner"):
         c1, c2 = st.columns([3, 1])
         with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM COIN")
@@ -736,12 +738,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         with t1: 
             # EXPLANATION BOX
-            with st.expander("ℹ️ ΠΩΣ ΝΑ ΔΙΑΒΑΣΕΙΣ ΤΟ ΔΙΑΓΡΑΜΜΑ (HOW TO READ)"):
+            with st.expander("ℹ️ HOW TO READ THE CHART & PREDICTIONS"):
                 st.markdown("""
-                * **Magenta Line (Oracle Ghost):** Ο αλγόριθμος εντοπίζει ένα παρόμοιο μοτίβο στο παρελθόν και το προβάλλει στο μέλλον.
-                * **Green/Red Cloud (Event Horizon):** Προσομοίωση Monte Carlo. Δείχνει το εύρος πιθανοτήτων (Best/Worst case) για τις επόμενες 30 ημέρες.
-                * **Dotted Lines (Res/Sup):** Αυτόματα επίπεδα Αντίστασης (Resistance) και Στήριξης (Support).
-                * **Yellow Line (SPY):** Η απόδοση του S&P 500 για σύγκριση.
+                * **Magenta Line (Oracle Ghost):** The algorithm detects a similar historical price pattern and projects it forward.
+                * **Green/Red Cloud (Event Horizon):** Monte Carlo simulation. Shows the statistical probability range (Best/Worst case) for the next 30 days based on volatility.
+                * **Dotted Lines (Res/Sup):** Auto-generated Resistance and Support levels.
+                * **Yellow Line (SPY):** S&P 500 performance for relative comparison.
                 """)
 
             # PLOTLY CHART
