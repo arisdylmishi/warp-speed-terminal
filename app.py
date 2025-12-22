@@ -5,19 +5,23 @@ from yaml.loader import SafeLoader
 import yfinance as yf
 import pandas as pd
 import numpy as np
-# import matplotlib.pyplot as plt # Αφαιρέθηκε για ταχύτητα, χρησιμοποιούμε st.line_chart
 from textblob import TextBlob
 
 # ==========================================
-# --- CONFIGURATION & SETUP ---
+# --- 1. CONFIGURATION & PAGE SETUP ---
 # ==========================================
-st.set_page_config(page_title="Warp Speed Terminal", layout="wide", page_icon="🚀")
+st.set_page_config(
+    page_title="Warp Speed Terminal", 
+    layout="wide", 
+    page_icon="🚀",
+    initial_sidebar_state="collapsed"
+)
 
-# Φόρτωση ρυθμίσεων (Users DB)
+# Load Database
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Δημιουργία Authenticator (Διορθωμένο για νέα έκδοση)
+# Initialize Authenticator
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
@@ -26,85 +30,120 @@ authenticator = stauth.Authenticate(
 )
 
 # ==========================================
-# --- LOGIC: LANDING PAGE vs APP ---
+# --- 2. AUTHENTICATION CONTROLLER ---
 # ==========================================
 
-# Η νέα έκδοση της βιβλιοθήκης δεν επιστρέφει μεταβλητές, αλλά αποθηκεύει στο session state
-authenticator.login()
+# Check session state for auth status
+if "authentication_status" not in st.session_state:
+    st.session_state["authentication_status"] = None
 
-if st.session_state["authentication_status"] is False:
-    st.error('Λάθος όνομα χρήστη ή κωδικός.')
-elif st.session_state["authentication_status"] is None:
-    # --- Ο ΧΡΗΣΤΗΣ ΔΕΝ ΕΙΝΑΙ ΣΥΝΔΕΔΕΜΕΝΟΣ: ΔΕΙΞΕ ΤΗ LANDING PAGE ---
-    
-    st.title("🚀 Warp Speed Terminal")
-    st.subheader("Το Απόλυτο Σύστημα Χρηματιστηριακής Πληροφόρησης")
-    
-    # 2. VIDEO (Βάλε το δικό σου Link εδώ)
-    st.video("https://www.youtube.com/watch?v=_YdQeuOZSXY") 
+# If user is NOT logged in, render the LANDING PAGE
+if not st.session_state["authentication_status"]:
 
+    # --- SECTION A: BRANDING ---
+    st.markdown("""
+        <h1 style='text-align: center; color: #00FFCC; font-size: 60px; font-family: "Courier New", monospace;'>
+        WARP SPEED TERMINAL
+        </h1>
+        <h3 style='text-align: center; color: #888; letter-spacing: 2px;'>
+        INSTITUTIONAL GRADE MARKET ANALYTICS
+        </h3>
+        """, unsafe_allow_html=True)
+    
     st.divider()
 
-    # 3. ΠΕΡΙΓΡΑΦΗ
+    # --- SECTION B: VIDEO ---
+    col_vid1, col_vid2, col_vid3 = st.columns([1, 2, 1])
+    with col_vid2:
+        # REPLACE WITH YOUR YOUTUBE LINK
+        st.video("https://youtu.be/ql1suvTu_ak") 
+
+    # --- SECTION C: DESCRIPTION ---
+    st.markdown("---")
+    st.markdown("### 📡 SYSTEM OVERVIEW")
     try:
         with open("description.txt", "r", encoding="utf-8") as f:
             desc_text = f.read()
-        st.markdown(desc_text)
+        st.info(desc_text)
     except:
-        st.write("Warp Speed Terminal: Advanced Analytics for Serious Traders.")
+        st.warning("System description file not found.")
 
-    st.divider()
+    st.markdown("---")
 
-    # 4. PRICING TIERS
-    st.header("🔓 Ξεκλειδώστε το Terminal")
-    
-    # --- ΠΡΟΣΟΧΗ: ΑΝΤΙΚΑΤΑΣΤΗΣΕ ΜΕ ΤΑ ΔΙΚΑ ΣΟΥ STRIPE LINKS ---
-    STRIPE_LINKS = {
-        "1M": "https://buy.stripe.com/XXXXX_LINK_1_MHNA",
-        "3M": "https://buy.stripe.com/XXXXX_LINK_3_MHNES",
-        "6M": "https://buy.stripe.com/XXXXX_LINK_6_MHNES",
-        "1Y": "https://buy.stripe.com/XXXXX_LINK_1_ETOS",
-    }
-    
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown("### 1 Μήνας")
-        st.markdown("# 25€")
-        st.link_button("Εγγραφή", STRIPE_LINKS["1M"], use_container_width=True)
-
-    with col2:
-        st.markdown("### 3 Μήνες")
-        st.markdown("# 23€ / μήνα")
-        st.link_button("Εγγραφή", STRIPE_LINKS["3M"], use_container_width=True, type="primary")
-
-    with col3:
-        st.markdown("### 6 Μήνες")
-        st.markdown("# 20€ / μήνα")
-        st.link_button("Εγγραφή", STRIPE_LINKS["6M"], use_container_width=True, type="primary")
+    # --- SECTION D: LOGIN AREA ---
+    col_log1, col_log2, col_log3 = st.columns([1, 1, 1])
+    with col_log2:
+        st.markdown("### 🔑 CLIENT ACCESS")
+        # The login widget renders here
+        authenticator.login(location='main')
         
-    with col4:
-        st.markdown("### 1 Έτος")
-        st.markdown("# 15€ / μήνα")
-        st.link_button("Εγγραφή", STRIPE_LINKS["1Y"], use_container_width=True, type="primary")
+        if st.session_state["authentication_status"] is False:
+            st.error('Access Denied: Invalid Credentials')
+        elif st.session_state["authentication_status"] is None:
+            st.caption("Please enter your secure credentials to proceed.")
 
-
-elif st.session_state["authentication_status"]:
-    # ==========================================
-    # --- Ο ΧΡΗΣΤΗΣ ΕΙΝΑΙ ΣΥΝΔΕΔΕΜΕΝΟΣ ---
-    # ==========================================
+    # --- SECTION E: PRICING (THE "POP-UP" STYLE) ---
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Ανάκτηση ονόματος χρήστη
+    # This acts like a sleek "Pop-down" or modal
+    with st.expander("💎 NEW USER? VIEW MEMBERSHIP PLANS", expanded=True):
+        st.markdown("<h2 style='text-align: center;'>SELECT YOUR TIER</h2>", unsafe_allow_html=True)
+        st.write("")
+        
+        # --- STRIPE LINKS (REPLACE THESE!) ---
+        STRIPE_LINKS = {
+            "1M": "https://buy.stripe.com/XXXXX_LINK_1_MONTH",
+            "3M": "https://buy.stripe.com/XXXXX_LINK_3_MONTHS",
+            "6M": "https://buy.stripe.com/XXXXX_LINK_6_MONTHS",
+            "1Y": "https://buy.stripe.com/XXXXX_LINK_1_YEAR",
+        }
+        
+        p1, p2, p3, p4 = st.columns(4)
+        
+        with p1:
+            st.markdown("#### MONTHLY")
+            st.markdown("## €25 / mo")
+            st.caption("Flexible Access")
+            st.link_button("SUBSCRIBE NOW", STRIPE_LINKS["1M"], use_container_width=True)
+            
+        with p2:
+            st.markdown("#### QUARTERLY")
+            st.markdown("## €23 / mo")
+            st.caption("Billed €69 every 3 months")
+            st.link_button("SUBSCRIBE (SAVE 8%)", STRIPE_LINKS["3M"], use_container_width=True, type="primary")
+            
+        with p3:
+            st.markdown("#### SEMI-ANNUAL")
+            st.markdown("## €20 / mo")
+            st.caption("Billed €120 every 6 months")
+            st.link_button("SUBSCRIBE (SAVE 20%)", STRIPE_LINKS["6M"], use_container_width=True, type="primary")
+
+        with p4:
+            st.markdown("#### ANNUAL")
+            st.markdown("## €15 / mo")
+            st.caption("Billed €180 yearly")
+            st.link_button("SUBSCRIBE (BEST VALUE)", STRIPE_LINKS["1Y"], use_container_width=True, type="primary")
+
+        st.info("ℹ️ NOTE: After payment, you will receive your secure login credentials via email.")
+
+
+# ==========================================
+# --- 3. MAIN APP (LOGGED IN STATE) ---
+# ==========================================
+elif st.session_state["authentication_status"]:
+    
+    # Get User Info
     username = st.session_state["username"]
     name = st.session_state["name"]
 
-    # Logout Button (Sidebar)
+    # Sidebar Logout
     with st.sidebar:
-        st.write(f"Welcome, **{name}**")
-        authenticator.logout()
+        st.markdown(f"User: **{name}**")
+        st.markdown(f"Status: <span style='color:#00FFCC'>ACTIVE</span>", unsafe_allow_html=True)
+        authenticator.logout(location='sidebar')
         st.divider()
 
-    # --- STOCK LOGIC ---
+    # --- STOCK LOGIC ENGINE ---
     @st.cache_data(ttl=300)
     def get_stock_data_web(tickers_list):
         data = []
@@ -118,7 +157,7 @@ elif st.session_state["authentication_status"]:
 
         for ticker in unique_tickers:
             try:
-                # Χειρισμός MultiIndex του yfinance
+                # Handle MultiIndex
                 if len(unique_tickers) > 1:
                     if ticker not in hist_data['Close'].columns: continue
                     h_close = hist_data['Close'][ticker].dropna()
@@ -129,14 +168,13 @@ elif st.session_state["authentication_status"]:
 
                 if len(h_close) < 50: continue
                 
-                # Calculations
+                # Math Logic
                 current_price = float(h_close.iloc[-1])
                 prev_close = float(h_close.iloc[-2])
                 change_pct = ((current_price - prev_close) / prev_close) * 100
-                
                 ma50 = h_close.rolling(50).mean().iloc[-1]
                 
-                # RSI
+                # RSI Calculation
                 delta = h_close.diff()
                 gain = delta.where(delta > 0, 0)
                 loss = -delta.where(delta < 0, 0)
@@ -146,10 +184,11 @@ elif st.session_state["authentication_status"]:
                 rsi_val = 100 - (100 / (1 + rs))
                 rsi_final = rsi_val.iloc[-1]
 
-                # Info
+                # Fundamentals
                 t_obj = yf.Ticker(ticker)
                 info = t_obj.info
                 
+                # Verdict Logic
                 verdict = "HOLD"
                 score = 0
                 if current_price > ma50: score += 40
@@ -168,23 +207,27 @@ elif st.session_state["authentication_status"]:
             except: continue
         return data
 
-    st.title("🚀 Warp Speed Terminal")
+    # --- APP DASHBOARD ---
+    st.title("🚀 WARP SPEED TERMINAL")
+    st.markdown("_Institutional Analytics Suite v18_")
     
     with st.form("scan_form"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            tickers_input = st.text_input("Assets > (e.g. AAPL TSLA)", help="Χωρίστε με κενό")
+            tickers_input = st.text_input("ASSETS > (e.g. AAPL TSLA NVDA)", help="Separate with space")
         with col2:
-            submitted = st.form_submit_button("SCAN 🔎", type="primary")
+            submitted = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
     
     if 'stock_data' not in st.session_state: st.session_state['stock_data'] = []
 
     if submitted and tickers_input:
-        with st.spinner('Scanning...'):
+        with st.spinner('Accessing Global Markets...'):
             tickers_list = [t.strip().upper() for t in tickers_input.replace(",", " ").split() if t.strip()]
             st.session_state['stock_data'] = get_stock_data_web(tickers_list)
 
     if st.session_state['stock_data']:
+        st.divider()
+        # Results Table
         df_display = pd.DataFrame([
             {
                 "Ticker": s['ticker'],
@@ -196,15 +239,21 @@ elif st.session_state["authentication_status"]:
         ])
         st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-        selected_ticker = st.selectbox("Ανάλυση:", [s['ticker'] for s in st.session_state['stock_data']])
+        # Deep Dive
+        st.markdown("### 🔬 DEEP DIVE ANALYSIS")
+        selected_ticker = st.selectbox("Select Asset:", [s['ticker'] for s in st.session_state['stock_data']])
+        
         if selected_ticker:
             stock = next(s for s in st.session_state['stock_data'] if s['ticker'] == selected_ticker)
+            
+            # Simple Chart
             st.line_chart(stock['hist_close'])
             
-            # Fundamentals Tab
+            # Fundamentals Grid
             info = stock['info']
-            st.write("### Fundamentals")
-            colf1, colf2, colf3 = st.columns(3)
+            st.markdown("#### FUNDAMENTALS & HEALTH")
+            colf1, colf2, colf3, colf4 = st.columns(4)
             colf1.metric("P/E Ratio", info.get('trailingPE', 'N/A'))
             colf2.metric("ROE", info.get('returnOnEquity', 'N/A'))
             colf3.metric("Debt/Equity", info.get('debtToEquity', 'N/A'))
+            colf4.metric("Free Cash Flow", info.get('freeCashflow', 'N/A'))
