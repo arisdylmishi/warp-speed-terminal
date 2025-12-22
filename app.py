@@ -1,14 +1,12 @@
 import streamlit as st
-import sqlite3
-import hashlib
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import time
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from textblob import TextBlob
+import time
 
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
@@ -36,11 +34,17 @@ st.markdown("""
             height: 3em;
             text-transform: uppercase;
             border: 1px solid #333;
+            background-color: #1f2833;
+            color: #66fcf1;
+        }
+        .stButton>button:hover {
+            background-color: #45a29e;
+            color: black;
         }
         
         div[data-testid="stMetricValue"] {
             font-size: 1.2rem;
-            color: #00FFCC; /* Neon Cyan */
+            color: #00FFCC; 
             font-family: 'Courier New', monospace;
         }
         div[data-testid="stMetricLabel"] {
@@ -61,7 +65,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC ---
+# --- 2. LOGIC ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -89,10 +93,9 @@ def calculate_indicators(hist):
     return hist
 
 def analyze_sentiment(news_items):
+    if not news_items: return "NEUTRAL", 0
     score = 0
     count = 0
-    if not news_items: return "NEUTRAL", 0
-    
     for item in news_items:
         title = item.get('title', '')
         if not title: continue
@@ -109,9 +112,7 @@ def analyze_sentiment(news_items):
     return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm"""
     if len(hist_series) < (lookback * 4): return None
-    
     current_pattern = hist_series.iloc[-lookback:].values
     c_min, c_max = current_pattern.min(), current_pattern.max()
     if c_max == c_min: return None
@@ -149,7 +150,7 @@ def format_large_number(num):
     except: return "N/A"
 
 # ==========================================
-# --- 3. DATABASE (LOGIN SYSTEM) ---
+# --- 3. DATABASE (LOGIN) ---
 # ==========================================
 def init_db():
     conn = sqlite3.connect('users.db')
@@ -217,7 +218,7 @@ def check_subscription_validity(email, current_expiry_str):
 init_db()
 
 # ==========================================
-# --- 4. SESSION & AUTH FLOW ---
+# --- 4. SESSION ---
 # ==========================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
@@ -239,7 +240,7 @@ if "payment_success" in query_params and st.session_state['logged_in']:
         st.error(f"Activation Error: {e}")
 
 # ==========================================
-# --- 5. VIEW: LANDING PAGE ---
+# --- 5. LANDING PAGE ---
 # ==========================================
 if not st.session_state['logged_in']:
     st.markdown("""
@@ -281,7 +282,6 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
@@ -289,7 +289,7 @@ if not st.session_state['logged_in']:
         
         #### Detailed Features:
         **1. Central Control Panel (Smart Dashboard)**
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil).
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
         * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
         
         **2. Deep Analysis**
@@ -317,7 +317,7 @@ if not st.session_state['logged_in']:
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
 # ==========================================
-# --- 6. VIEW: PAYWALL ---
+# --- 6. PAYWALL ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
     st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
@@ -333,12 +333,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
     
-    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
 # ==========================================
-# --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
+# --- 7. TERMINAL APP ---
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
     
@@ -349,7 +348,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (Robust) ---
+    # --- MACRO BAR ---
     with st.container():
         try:
             macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
@@ -359,8 +358,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
             
             if not m_data.empty:
-                # Handle cases where some rows are NaN
-                last_row = m_data.ffill().iloc[-1] 
+                last_row = m_data.ffill().iloc[-1]
                 prev_row = m_data.ffill().iloc[-2]
                 
                 for idx, (sym, name) in enumerate(names.items()):
@@ -380,19 +378,23 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
     st.divider()
 
-    # --- SCANNER ENGINE (SINGLE TICKER FIX) ---
+    # --- SCANNER ENGINE (SINGLE & MULTI FIXED) ---
     def scan_market_safe(tickers):
         results = []
-        for t in tickers:
+        progress_text = "Scanning assets..."
+        my_bar = st.progress(0, text=progress_text)
+        total = len(tickers)
+        
+        for idx, t in enumerate(tickers):
             try:
-                # Fetch Single Ticker Safely
+                # Update progress
+                my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
+                
+                # Fetch Data ONE BY ONE (Safest method)
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
-                if df.empty or len(df) < 50: 
-                    # Try downloading if history fails (fallback)
-                    df = yf.download(t, period="1y", progress=False, auto_adjust=True)
-                    if df.empty or len(df) < 50: continue
+                if df.empty or len(df) < 50: continue
                 
                 # Indicators
                 df = calculate_indicators(df)
@@ -401,17 +403,17 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 chg = ((curr - prev)/prev)*100
                 rsi = df['RSI'].iloc[-1]
                 
-                # Logic
+                # Verdict
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
                 
                 verdict = "HOLD"
                 reasons = [] 
                 
                 if curr > ma50:
-                    reasons.append(f"✓ Price (${curr:.2f}) > 50MA (${ma50:.2f}) -> Bullish Trend")
+                    reasons.append(f"✓ Price (${curr:.2f}) > 50MA -> Bullish Trend")
                     if rsi < 70: verdict = "BUY"
                 else:
-                    reasons.append(f"✗ Price (${curr:.2f}) < 50MA (${ma50:.2f}) -> Bearish Trend")
+                    reasons.append(f"✗ Price (${curr:.2f}) < 50MA -> Bearish Trend")
                     if rsi > 70: verdict = "SELL"
                 
                 if rsi < 30: 
@@ -454,6 +456,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "TargetPrice": target_price, "Consensus": consensus
                 })
             except: continue
+            
+        my_bar.empty()
         return results
 
     # --- MAIN INTERFACE ---
@@ -465,8 +469,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     if run_scan:
         ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
         if ticks:
-            with st.spinner(f"Scanning {len(ticks)} assets..."):
-                st.session_state['data'] = scan_market_safe(ticks)
+            st.session_state['data'] = scan_market_safe(ticks)
         else:
             st.warning("Please enter a symbol.")
 
@@ -517,13 +520,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             
-            fig = make_subplots(
-                rows=2, 
-                cols=1, 
-                shared_xaxes=True, 
-                vertical_spacing=0.05, 
-                row_heights=[0.7, 0.3]
-            )
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
             
             fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
