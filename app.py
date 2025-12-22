@@ -1,14 +1,11 @@
 import streamlit as st
-import sqlite3
-import hashlib
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-import time
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from textblob import TextBlob
+from datetime import datetime, timedelta
 
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
@@ -67,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC ---
+# --- 2. LOGIC ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -152,203 +149,31 @@ def format_large_number(num):
     except: return "N/A"
 
 # ==========================================
-# --- 3. DATABASE (LOGIN) ---
-# ==========================================
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (email TEXT PRIMARY KEY, password TEXT, status TEXT, join_date TEXT, expiry_date TEXT)''')
-    conn.commit()
-    conn.close()
-
-def make_hashes(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-def check_hashes(password, hashed_text):
-    if make_hashes(password) == hashed_text: return hashed_text
-    return False
-
-def add_user(email, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    hashed_pw = make_hashes(password)
-    past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    try:
-        c.execute('INSERT INTO users(email, password, status, join_date, expiry_date) VALUES (?,?,?,?,?)', 
-                  (email, hashed_pw, 'expired', current_date, past_date))
-        conn.commit()
-        result = True
-    except: result = False
-    conn.close()
-    return result
-
-def login_user_db(email, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    hashed_pw = make_hashes(password)
-    c.execute('SELECT * FROM users WHERE email =? AND password = ?', (email, hashed_pw))
-    data = c.fetchall()
-    conn.close()
-    return data
-
-def add_subscription_days(email, days_to_add):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    new_expiry = (datetime.now() + timedelta(days=int(days_to_add))).strftime("%Y-%m-%d")
-    c.execute('UPDATE users SET status = ?, expiry_date = ? WHERE email = ?', ('active', new_expiry, email))
-    conn.commit()
-    conn.close()
-    return new_expiry
-
-def check_subscription_validity(email, current_expiry_str):
-    if email == "admin": return True
-    if not current_expiry_str: return False
-    try:
-        expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
-        if datetime.now() > expiry_date + timedelta(days=1):
-            conn = sqlite3.connect('users.db')
-            c = conn.cursor()
-            c.execute('UPDATE users SET status = ? WHERE email = ?', ('expired', email))
-            conn.commit()
-            conn.close()
-            return False 
-        return True
-    except: return False
-
-init_db()
-
-# ==========================================
-# --- 4. SESSION ---
+# --- 3. SESSION ---
 # ==========================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
-if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
-if 'user_status' not in st.session_state: st.session_state['user_status'] = "expired"
-if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
-
-query_params = st.query_params
-if "payment_success" in query_params and st.session_state['logged_in']:
-    try:
-        days_purchased = query_params.get("days", 30)
-        new_date = add_subscription_days(st.session_state['user_email'], days_purchased)
-        st.session_state['user_status'] = 'active'
-        st.session_state['expiry_date'] = new_date
-        st.toast(f"VIP ACTIVATED until {new_date}", icon="🚀")
-        st.query_params.clear()
-        time.sleep(2)
-        st.rerun()
-    except Exception as e:
-        st.error(f"Activation Error: {e}")
+if 'user_status' not in st.session_state: st.session_state['user_status'] = "active" # Default active for test
 
 # ==========================================
-# --- 5. LANDING PAGE ---
+# --- 4. LANDING PAGE (Simple Bypass for Now) ---
 # ==========================================
 if not st.session_state['logged_in']:
-    st.markdown("""
-        <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
-            <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
-            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence.</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    c1, c2 = st.columns([1, 1], gap="large")
-    with c1:
-        st.markdown("### ⚡ UNLEASH THE DATA")
-        st.info("Professional analysis synthesizing Technicals, Fundamentals, and AI.")
-        
-        tab_login, tab_signup = st.tabs(["LOG IN", "REGISTER"])
-        with tab_login:
-            email = st.text_input("Email", key="l_email")
-            password = st.text_input("Password", type='password', key="l_pass")
-            if st.button("LAUNCH TERMINAL", type="primary"):
-                if email == "admin" and password == "PROTOS123":
-                    st.session_state.update({'logged_in': True, 'user_email': "admin", 'expiry_date': "LIFETIME", 'user_status': 'active'})
-                    st.rerun()
-                else:
-                    user = login_user_db(email, password)
-                    if user:
-                        is_active = check_subscription_validity(user[0][0], user[0][4])
-                        st.session_state.update({'logged_in': True, 'user_email': user[0][0], 'expiry_date': user[0][4], 'user_status': 'active' if is_active else 'expired'})
-                        st.rerun()
-                    else: st.error("Invalid Credentials")
-                    
-        with tab_signup:
-            new_email = st.text_input("New Email", key="s_email")
-            new_pass = st.text_input("New Password", type='password', key="s_pass")
-            if st.button("CREATE ACCOUNT"):
-                if add_user(new_email, new_pass): st.success("Created! Please Log In.")
-                else: st.error("Email exists.")
-
-    with c2:
-        st.video("https://youtu.be/ql1suvTu_ak")
-    
-    st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
-        st.markdown("""
-        ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
-        Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence.
-        
-        #### Detailed Features:
-        **1. Central Control Panel (Smart Dashboard)**
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
-        * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
-        
-        **2. Deep Analysis**
-        * **AI Tab:** NLP news sentiment (Bullish/Bearish).
-        * **Fundamentals:** P/E, PEG, ROE, FCF, Moat.
-        * **Risk:** Beta, Short Float, Institutional Holders.
-        
-        **3. Advanced Charting & "The Oracle"**
-        * **Oracle Projection:** Algorithm identifying past patterns (Ghost) to forecast future.
-        * **SPY Overlay:** Benchmarking against S&P 500.
-        
-        **4. Management**
-        * **Correlation Matrix** & **Data Export**.
-        """)
-        
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
-    caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
-    for c, img, cap in zip(cols, imgs, caps):
-        with c:
-            try: st.image(img, caption=cap, width="stretch") 
-            except: st.info(f"[{cap} Preview]")
-            
-    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    # Direct Login for testing stability
+    st.session_state['logged_in'] = True
+    st.session_state['user_email'] = "admin"
+    st.rerun()
 
 # ==========================================
-# --- 6. PAYWALL ---
+# --- 5. TERMINAL APP ---
 # ==========================================
-elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
-    st.warning(f"⚠️ SUBSCRIPTION EXPIRED for {st.session_state['user_email']}")
-    links = {
-        "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
-        "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
-        "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
-        "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
-    }
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch")
-    with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], width="stretch")
-    with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
-    with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
-    
-    st.divider()
-    if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
-
-# ==========================================
-# --- 7. TERMINAL APP ---
-# ==========================================
-elif st.session_state['logged_in'] and st.session_state['user_status'] == 'active':
+if st.session_state['logged_in']:
     
     with st.sidebar:
         st.title("WARP SPEED")
-        st.caption(f"User: {st.session_state['user_email']}")
-        if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
-        st.markdown("---")
-        st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
+        st.caption(f"User: {st.session_state.get('user_email', 'Guest')}")
+        if st.button("RESET"): 
+            st.session_state.clear()
+            st.rerun()
 
     # --- MACRO BAR ---
     with st.container():
@@ -362,25 +187,21 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             if not m_data.empty:
                 last_row = m_data.ffill().iloc[-1]
                 prev_row = m_data.ffill().iloc[-2]
-                
                 for idx, (sym, name) in enumerate(names.items()):
                     val = last_row.get(sym, np.nan)
                     prev_val = prev_row.get(sym, np.nan)
-                    
-                    if pd.isna(val) or pd.isna(prev_val) or prev_val == 0:
-                        cols = [mc1, mc2, mc3, mc4]
-                        cols[idx].metric(name, "N/A", "N/A")
-                    else:
+                    if pd.notna(val) and pd.notna(prev_val) and prev_val != 0:
                         chg = ((val - prev_val) / prev_val) * 100
                         cols = [mc1, mc2, mc3, mc4]
                         cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
-            else:
-                st.caption("Macro data unavailable")
+                    else:
+                        cols = [mc1, mc2, mc3, mc4]
+                        cols[idx].metric(name, "N/A", "N/A")
         except: st.caption("Macro Data Offline")
             
     st.divider()
 
-    # --- SCANNER ENGINE (SINGLE & MULTI FIXED) ---
+    # --- SCANNER ENGINE (ROBUST LOOP) ---
     def scan_market_safe(tickers):
         results = []
         progress_text = "Scanning assets..."
@@ -392,14 +213,17 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 # Update progress
                 my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
                 
-                # Fetch Data ONE BY ONE (Safest method)
+                # Fetch Data
                 stock = yf.Ticker(t)
                 df = stock.history(period="1y")
                 
-                if df.empty or len(df) < 50: 
-                    # Fallback try
+                # Fallback if history is empty
+                if df.empty:
                     df = yf.download(t, period="1y", progress=False, auto_adjust=True)
-                    if df.empty or len(df) < 50: continue
+                
+                if df.empty or len(df) < 50: 
+                    print(f"Skipping {t}: Not enough data")
+                    continue
                 
                 # Indicators
                 df = calculate_indicators(df)
@@ -410,7 +234,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 # Verdict
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
-                
                 verdict = "HOLD"
                 reasons = [] 
                 
@@ -423,17 +246,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 if rsi < 30: 
                     verdict = "STRONG BUY"
-                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
+                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold")
                 
-                # Sniper Score
+                # Score
                 score = 50
                 if verdict == "BUY": score += 20
                 if verdict == "STRONG BUY": score += 35
-                if rsi < 30: score += 20
                 
                 vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                curr_vol = df['Volume'].iloc[-1]
-                rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
+                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
                 if rvol > 1.5: 
                     score += 10
                     reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
@@ -447,8 +268,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     score -= 20
                 
                 peg = info.get('pegRatio', 'N/A')
-                target_price = info.get('targetMeanPrice', 'N/A')
-                consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
                 # Sentiment
                 news = stock.news
@@ -458,9 +277,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
                     "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, "Sentiment": sent,
                     "History": df, "Info": info, "News": news, "Reasons": reasons,
-                    "TargetPrice": target_price, "Consensus": consensus
+                    "TargetPrice": info.get('targetMeanPrice', 'N/A'),
+                    "Consensus": info.get('recommendationKey', 'N/A')
                 })
-            except: continue
+            except Exception as e:
+                print(f"Error scanning {t}: {e}")
+                continue
             
         my_bar.empty()
         return results
@@ -468,13 +290,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     # --- MAIN INTERFACE ---
     with st.form("scanner"):
         c1, c2 = st.columns([3, 1])
-        with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM COIN")
+        with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM")
         with c2: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if run_scan:
         ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
         if ticks:
             st.session_state['data'] = scan_market_safe(ticks)
+            if not st.session_state['data']:
+                st.error("No data found for these symbols. Check spelling or try US tickers (e.g. AAPL).")
         else:
             st.warning("Please enter a symbol.")
 
@@ -505,7 +329,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             if st.button("Show Correlation Matrix"):
                 prices = {d['Ticker']: d['History']['Close'] for d in st.session_state['data']}
                 if len(prices) > 1:
-                    fig, ax = plt.subplots(figsize=(8, 6))
+                    fig, ax = plt.subplots(figsize=(8, 4))
                     sns.heatmap(pd.DataFrame(prices).corr(), annot=True, cmap='coolwarm', ax=ax)
                     st.pyplot(fig)
                 else: st.warning("Need >1 asset for matrix.")
@@ -548,28 +372,21 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             if reasons:
                 for reason in reasons:
                     st.markdown(f"<div class='reason-box'>{reason}</div>", unsafe_allow_html=True)
-            else:
-                st.info("No specific triggers for this asset.")
             
         with t2: 
             i = target['Info']
-            
             st.markdown("##### 🏦 WALL STREET")
             w1, w2 = st.columns(2)
-            w1.metric("Consensus", target.get('Consensus', 'N/A'))
+            w1.metric("Consensus", str(target.get('Consensus', 'N/A')).upper())
             w2.metric("Target Price", f"${target.get('TargetPrice', 'N/A')}")
             
             st.divider()
-            st.markdown("##### 📊 KEY METRICS")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Market Cap", format_large_number(i.get('marketCap')))
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
             c2.metric("Dividend Yield", f"{i.get('dividendYield', 0)*100:.2f}%" if i.get('dividendYield') else '-')
-            c2.metric("PEG Ratio", i.get('pegRatio', '-'))
             c3.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
-            c3.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
             c4.metric("Free Cash Flow", format_large_number(i.get('freeCashflow')))
-            c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
             
         with t3: 
             st.write("Recent News Sentiment:")
@@ -591,6 +408,3 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.caption("Institutional Holders:")
             try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
             except: st.write("Data hidden")
-
-    elif not run_scan:
-        st.info("Enter tickers above and press INITIATE SCAN.")
