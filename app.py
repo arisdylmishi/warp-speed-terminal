@@ -17,19 +17,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS για να μοιάζει με Web App (SaaS)
+# Custom CSS
 st.markdown("""
     <style>
-        /* Κρύψε το menu του Streamlit για καθαρό look */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Γραμματοσειρές και Επικεφαλίδες */
         h1 { font-family: 'Helvetica Neue', sans-serif; font-weight: 800; letter-spacing: -1px; }
         h2, h3 { font-family: 'Helvetica Neue', sans-serif; font-weight: 600; }
         
-        /* Στυλ Κουμπιών */
         .stButton>button {
             width: 100%;
             border-radius: 5px;
@@ -37,9 +34,17 @@ st.markdown("""
             height: 3em;
         }
         
-        /* Μεγέθυνση αριθμών στα Metrics */
         div[data-testid="stMetricValue"] {
             font-size: 1.8rem;
+        }
+        
+        /* Description Box Style */
+        .desc-box {
+            background-color: #0e1117;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #00FFCC;
+            margin-top: 20px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -67,7 +72,6 @@ def add_user(email, password):
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     hashed_pw = make_hashes(password)
-    # Default: Expired (Needs payment)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
@@ -99,7 +103,7 @@ def add_subscription_days(email, days_to_add):
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
-    # BACKDOOR ΓΙΑ ADMIN - ΠΑΝΤΑ ΕΝΕΡΓΟΣ
+    # ADMIN BACKDOOR
     if email == "admin": return True
     
     if not current_expiry_str: return False
@@ -126,7 +130,6 @@ if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
 if 'user_status' not in st.session_state: st.session_state['user_status'] = "expired"
 if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 
-# Έλεγχος επιστροφής από Stripe
 query_params = st.query_params
 if "payment_success" in query_params and st.session_state['logged_in']:
     try:
@@ -150,8 +153,7 @@ if not st.session_state['logged_in']:
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
             <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
-            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence for Everyone.</p>
-            <p style='font-size: 16px; color: #666;'>Real-time Scanning • Technical Analysis • Risk Management</p>
+            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence.</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -160,11 +162,7 @@ if not st.session_state['logged_in']:
     with col_main_1:
         st.markdown("### ⚡ UNLEASH THE DATA")
         st.markdown("""
-        Stop guessing. Start executing. The Warp Speed Terminal gives you the same tools used by hedge funds:
-        
-        * **Live Matrix Scanner:** Find movers instantly with institutional verdicts.
-        * **Deep Dive Analytics:** Automated Technicals, Fibonacci levels, and Sentiment.
-        * **Risk Profiles:** See major holders, insider activity, and short float.
+        **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals.
         """)
         
         st.markdown("---")
@@ -176,7 +174,6 @@ if not st.session_state['logged_in']:
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type='password', key="login_pass")
             
-            # LOGIN BUTTON
             if st.button("LAUNCH TERMINAL", type="primary", width="stretch"):
                 # --- BACKDOOR CHECK ---
                 if email == "admin" and password == "PROTOS123":
@@ -187,7 +184,6 @@ if not st.session_state['logged_in']:
                     st.success("ADMIN OVERRIDE ACTIVATED 🔓")
                     time.sleep(0.5)
                     st.rerun()
-                # ----------------------
                 else:
                     user_record = login_user_db(email, password)
                     if user_record:
@@ -207,7 +203,6 @@ if not st.session_state['logged_in']:
             new_pass = st.text_input("New Password", type='password', key="signup_pass")
             conf_pass = st.text_input("Confirm Password", type='password', key="signup_conf")
             
-            # REGISTER BUTTON
             if st.button("CREATE ACCOUNT", width="stretch"):
                 if new_pass == conf_pass and len(new_pass) > 0:
                     if add_user(new_email, new_pass):
@@ -218,28 +213,60 @@ if not st.session_state['logged_in']:
                     st.warning("Passwords do not match.")
 
     with col_main_2:
-        # VIDEO SHOWCASE
         st.video("https://youtu.be/ql1suvTu_ak") 
-        st.caption("See the Warp Speed Terminal in action.")
+        st.caption("Platform Demo")
+
+    # --- DESCRIPTION SECTION (INSERTED HERE) ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
+        st.markdown("""
+        ### 🛡️ Ultimate Stock Market Intelligence System
+        
+        **1. Central Control Panel (Smart Dashboard)**
+        The Investor's Headquarters.
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil).
+        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them.
+        * **The Evaluation Algorithm:**
+            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
+            * *Sniper Score (/100):* A quantitative scoring of the opportunity.
+            * *Bubble Alert:* Detection of overvalued stocks.
+            * *RVOL & RSI:* Detection of unusual volume and oversold levels.
+
+        **2. Deep Analysis (Deep Dive View)**
+        Double-clicking opens a full "X-ray" tab for the stock:
+        * **Analysis & AI Tab:** NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish).
+        * **Fundamentals Tab (Enriched):** Valuation metrics (P/E, PEG), ROE, Debt-to-Equity, FCF, Profit Margins (Economic Moat).
+        * **Wall Street:** Comparison with analyst forecasts.
+        * **Risk Tab:** Volatility analysis (Beta), Short Float, and Institutional Holders.
+
+        **3. Advanced Charting & "The Oracle"**
+        * **Oracle Projection:** The algorithm scans historical data and projects a forecast line (Ghost) for the future.
+        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500.
+        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, MACD, Volume.
+
+        **4. Management & Export Tools**
+        * **Correlation Matrix:** Heatmap to check correlations between portfolio stocks.
+        * **Data Export:** Instant export of all data to Excel/CSV.
+        """)
 
     # SCREENSHOT GALLERY
-    st.markdown("<br><br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     
     feat_col1, feat_col2, feat_col3 = st.columns(3)
     
     with feat_col1:
         st.markdown("**THE MATRIX SCANNER**")
-        try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan & Verdicts", width="stretch")
+        try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan", width="stretch")
         except: st.info("[Image: dashboard.png not found]")
         
     with feat_col2:
         st.markdown("**DEEP DIVE ANALYSIS**")
-        try: st.image("analysis.png", caption="Automated Technicals, Levels & Sentiment", width="stretch")
+        try: st.image("analysis.png", caption="Automated Technicals", width="stretch")
         except: st.info("[Image: analysis.png not found]")
 
     with feat_col3:
         st.markdown("**RISK & INSIDERS**")
-        try: st.image("risk_insiders.png", caption="Major Holders & Risk Profile", width="stretch")
+        try: st.image("risk_insiders.png", caption="Risk Profile", width="stretch")
         except: st.info("[Image: risk_insiders.png not found]")
 
     st.markdown("---")
@@ -337,12 +364,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     @st.cache_data(ttl=300)
     def get_stock_data_web(tickers_list):
         data = []
-        # Καθαρισμός λίστας
         unique_tickers = list(set([t.strip().upper() for t in tickers_list if t.strip()]))
         if not unique_tickers: return []
         
         try:
-            # Download data - Χωρίς threading για αποφυγή rate limits του Yahoo
+            # FIX: threads=False avoids Rate Limits
             hist_data = yf.download(unique_tickers, period="2y", interval="1d", progress=False, auto_adjust=True, threads=False)
             if hist_data.empty: return []
         except Exception as e:
@@ -350,7 +376,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
 
         for ticker in unique_tickers:
             try:
-                # Διαχείριση δεδομένων ανάλογα αν είναι 1 ή πολλά tickers
+                # Handle MultiIndex
                 if len(unique_tickers) > 1:
                     try:
                         h_close = hist_data['Close'][ticker].dropna()
@@ -361,7 +387,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 if len(h_close) < 50: continue
                 
-                # --- Ασφαλής μετατροπή δεδομένων (Fix Float Conversion) ---
+                # --- FIX: Float Conversion ---
                 curr_val = h_close.iloc[-1]
                 prev_val = h_close.iloc[-2]
                 
@@ -370,7 +396,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 change_pct = ((current_price - prev_close) / prev_close) * 100
                 
-                # Υπολογισμοί δεικτών
+                # Calculations
                 ma50 = h_close.rolling(50).mean().iloc[-1]
                 if hasattr(ma50, 'item'): ma50 = float(ma50.item())
                 
@@ -386,7 +412,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 rsi_final = rsi_val.iloc[-1]
                 if hasattr(rsi_final, 'item'): rsi_final = float(rsi_final.item())
                 
-                # --- Verdict Logic ---
                 t_obj = yf.Ticker(ticker)
                 try: info = t_obj.info
                 except: info = {}
@@ -416,17 +441,17 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     st.title("🚀 WARP SPEED TERMINAL")
     st.markdown("_Institutional Analytics Suite_")
 
-    # Φόρμα εισαγωγής Tickers
+    # SCAN FORM
     with st.form("scan_form"):
         col_in1, col_in2 = st.columns([3, 1])
         with col_in1: 
-            tickers_input = st.text_input("ENTER ASSETS >", help="Γράψε σύμβολα με κενό, π.χ.: AAPL TSLA BTC-USD")
+            tickers_input = st.text_input("ENTER ASSETS >", help="e.g. AAPL TSLA BTC-USD")
         with col_in2: 
             submitted = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if 'stock_data' not in st.session_state: st.session_state['stock_data'] = []
 
-    # Λογική εκτέλεσης SCAN
+    # EXECUTE SCAN
     if submitted:
         if not tickers_input:
             st.warning("⚠️ Please enter at least one ticker symbol (e.g. AAPL).")
@@ -436,11 +461,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 scan_results = get_stock_data_web(tickers_list)
                 st.session_state['stock_data'] = scan_results
 
+                # Handle Silent Failure
                 if not scan_results:
                     st.error(f"❌ No data found for: {tickers_input}")
-                    st.info("💡 Try using valid tickers (e.g., 'AAPL', 'NVDA', 'BTC-USD'). Check spelling.")
+                    st.info("💡 Tips: Use valid symbols (AAPL, NVDA, BTC-USD). Check spelling.")
 
-    # Εμφάνιση αποτελεσμάτων
+    # DISPLAY RESULTS
     if st.session_state['stock_data']:
         st.divider()
         df_display = pd.DataFrame([{ "Ticker": s['ticker'], "Price": f"${s['current_price']:.2f}", "Change": f"{s['change_pct']:+.2f}%", 
