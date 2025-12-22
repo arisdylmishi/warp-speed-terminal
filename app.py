@@ -584,9 +584,6 @@ def open_deep_dive(stock):
     top.title(f"WARP SPEED // {stock['ticker']}")
     top.geometry("1600x950")
     top.configure(bg=COLOR_BG)
-    # [Details of deep dive window omitted for brevity, reusing your logic]
-    # For simplicity, assuming the deep dive logic is consistent with your provided script.
-    # To save space, I will re-paste the logic for deep dive here to ensure it works.
     
     left_notebook = ttk.Notebook(top)
     left_notebook.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
@@ -622,14 +619,93 @@ def open_deep_dive(stock):
         r_col = COLOR_UP if "✓" in reason else (COLOR_DOWN if "✗" in reason else "white")
         add_lbl(tab_analysis, reason, 9, r_col)
 
-    # CHARTING
+    if stock['bubble']:
+        tk.Label(tab_analysis, text="⚠️ BUBBLE SIGNAL", bg=COLOR_PANEL, fg=COLOR_DOWN, font=("Arial", 12, "bold")).pack(pady=5)
+
+    tk.Frame(tab_analysis, bg="#333", height=1).pack(fill=tk.X, padx=20, pady=10)
+    add_lbl(tab_analysis, f"Sentiment: {stock['sentiment_label']}", 10, "white", True)
+    if stock['news']:
+        for item in stock['news']:
+            t = item['title'][:30]+"..." if len(item['title'])>30 else item['title']
+            add_lbl(tab_analysis, f"> {t}", 8, "#888", False, item['link'])
+
+    # TAB 2: FUNDAMENTALS
+    info = stock['full_info']
+    def fmt_num(n):
+        if n == "N/A": return "N/A"
+        try:
+            if n > 1e12: return f"${n/1e12:.2f}T"
+            if n > 1e9: return f"${n/1e9:.2f}B"
+            return f"${n/1e6:.2f}M"
+        except: return "N/A"
+
+    add_lbl(tab_fund, ":: VALUATION ::", 11, COLOR_ORACLE, True)
+    add_lbl(tab_fund, f"Mkt Cap: {fmt_num(info['marketCap'])}")
+    add_lbl(tab_fund, f"P/E Ratio: {stock['pe']}")
+    add_lbl(tab_fund, f"PEG Ratio: {info['pegRatio']}")
+    
+    div = info['dividendYield']
+    try:
+        div_str = f"{float(div)*100:.2f}%" if div != "N/A" else "0.00%"
+    except: div_str = "N/A"
+    add_lbl(tab_fund, f"Div Yield: {div_str}")
+    
+    # --- NEW FUNDAMENTAL METRICS DISPLAY ---
+    add_lbl(tab_fund, " ")
+    add_lbl(tab_fund, ":: HEALTH & MOAT ::", 11, COLOR_ORACLE, True)
+    
+    # ROE
+    roe = info['returnOnEquity']
+    try:
+        roe_str = f"{roe*100:.2f}%" if roe != "N/A" else "N/A"
+    except: roe_str = "N/A"
+    add_lbl(tab_fund, f"ROE: {roe_str}")
+
+    # Debt to Equity
+    dte = info['debtToEquity']
+    add_lbl(tab_fund, f"Debt/Equity: {dte}")
+
+    # Profit Margins
+    pm = info['profitMargins']
+    try:
+        pm_str = f"{pm*100:.2f}%" if pm != "N/A" else "N/A"
+    except: pm_str = "N/A"
+    add_lbl(tab_fund, f"Profit Margin: {pm_str}")
+
+    # FCF
+    fcf = info['freeCashflow']
+    add_lbl(tab_fund, f"Free Cash Flow: {fmt_num(fcf)}")
+    
+    add_lbl(tab_fund, " ")
+    add_lbl(tab_fund, ":: WALL STREET ::", 11, COLOR_ORACLE, True)
+    rec = str(info['recommendationKey']).upper().replace("_", " ")
+    add_lbl(tab_fund, f"Consensus: {rec}")
+    add_lbl(tab_fund, f"Target Px: ${info['targetMeanPrice']}")
+
+    # TAB 3: RISK
+    add_lbl(tab_risk, ":: RISK PROFILE ::", 11, COLOR_ORACLE, True)
+    add_lbl(tab_risk, f"Beta: {info['beta']}")
+    add_lbl(tab_risk, f"Short Float: {info['shortRatio']}")
+    
+    tk.Label(tab_risk, text="MAJOR HOLDERS", bg=COLOR_PANEL, fg=COLOR_ACCENT).pack(pady=10)
+    try:
+        holders = stock['yfinance_obj'].institutional_holders
+        if holders is not None and not holders.empty:
+            for idx, row in holders.head(5).iterrows():
+                add_lbl(tab_risk, f"{row.get('Holder','N/A')}", 8, "#ccc")
+    except: pass
+
+    # CHARTS
     chart_frame = tk.Frame(top, bg=COLOR_BG)
     chart_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
+    tf_frame = tk.Frame(chart_frame, bg=COLOR_BG)
+    tf_frame.pack(fill=tk.X, pady=(0, 5))
     
     chart_content = tk.Frame(chart_frame, bg=COLOR_BG)
     chart_content.pack(fill=tk.BOTH, expand=True)
 
-    def plot_charts_internal(period_days=365): 
+    def plot_charts(period_days=365): 
         for widget in chart_content.winfo_children(): widget.destroy()
         fig_dd = plt.Figure(figsize=(10, 8), facecolor=COLOR_CHART_BG)
         gs = fig_dd.add_gridspec(3, 1, height_ratios=[3, 1, 1], hspace=0.15)
@@ -641,22 +717,48 @@ def open_deep_dive(stock):
         if len(hist) > period_days: hist = hist.iloc[-period_days:]
         
         ax_p.plot(hist.index, hist['Close'], color="white", linewidth=1.5)
+        ax_p.fill_between(hist.index, hist['Close'], hist['Close'].min(), color=COLOR_ACCENT, alpha=0.1)
+        
         ax_p.plot(hist.index, hist['UpperBB'], color=COLOR_ACCENT, alpha=0.3)
         ax_p.plot(hist.index, hist['LowerBB'], color=COLOR_ACCENT, alpha=0.3)
         
-        # [MACD Plot]
-        
+        fibs = stock['fib_levels']
+        for level, price in fibs.items():
+            if price > hist['Close'].min():
+                ax_p.axhline(price, color=COLOR_FIB, linestyle="--", linewidth=0.8)
+                ax_p.text(hist.index[0], price, f"Fib {level}", color=COLOR_FIB, fontsize=8)
 
-[Image of MACD indicator explained]
+        ax_p.axhline(stock['resistance'], color=COLOR_RESISTANCE, linestyle="-", linewidth=1)
+        ax_p.axhline(stock['support'], color=COLOR_SUPPORT, linestyle="-", linewidth=1)
+        
+        target_price = stock['full_info']['targetMeanPrice']
+        if target_price != "N/A":
+             ax_p.axhline(target_price, color=COLOR_TARGET, linestyle=":", linewidth=1.5, label=f"Target ${target_price}")
+
+        if spy_history is not None:
+            spy_slice = spy_history['Close'].reindex(hist.index, method='nearest')
+            if len(spy_slice) > 0 and len(hist) > 0:
+                scale = hist['Close'].iloc[0] / spy_slice.iloc[0]
+                ax_p.plot(hist.index, spy_slice * scale, color=COLOR_SPY, linestyle="--", linewidth=1, label="S&P 500", alpha=0.5)
+        
+        ax_p.legend(facecolor=COLOR_CHART_BG, edgecolor=COLOR_GRID, labelcolor=COLOR_TEXT)
+
+        ghost_data, match_date, score = find_similar_pattern(stock['hist']['Close'])
+        if ghost_data is not None:
+            last_date = stock['hist'].index[-1]
+            future_dates = [last_date + timedelta(days=i) for i in range(1, GHOST_PROJECTION + 1)]
+            scale = stock['hist']['Close'].iloc[-1] / ghost_data.iloc[GHOST_LOOKBACK-1]
+            ghost_future = ghost_data.iloc[GHOST_LOOKBACK:] * scale
+            ax_p.plot(future_dates, ghost_future, color=COLOR_ORACLE, linestyle="--", linewidth=2)
 
         ax_m.plot(hist.index, hist['MACD'], color=COLOR_ACCENT)
         ax_m.plot(hist.index, hist['Signal'], color=COLOR_DOWN)
-        
-        # [Bollinger Bands Plot]
-        
+        hist_vals = hist['MACD'] - hist['Signal']
+        colors = [COLOR_UP if v >= 0 else COLOR_DOWN for v in hist_vals]
+        ax_m.bar(hist.index, hist_vals, color=colors, alpha=0.5)
 
-[Image of Bollinger Bands technical analysis]
-
+        vol_colors = [COLOR_UP if hist['Close'].iloc[i] >= hist['Close'].iloc[i-1] else COLOR_DOWN for i in range(len(hist))]
+        ax_v.bar(hist.index, hist['Volume'], color=vol_colors, alpha=0.8)
 
         for ax in [ax_p, ax_m, ax_v]:
             ax.set_facecolor(COLOR_CHART_BG)
@@ -664,11 +766,19 @@ def open_deep_dive(stock):
             ax.grid(True, color=COLOR_GRID, linestyle=':', alpha=0.5)
             for spine in ax.spines.values(): spine.set_color(COLOR_GRID)
 
+        plt.setp(ax_p.get_xticklabels(), visible=False)
+        plt.setp(ax_m.get_xticklabels(), visible=False)
+        
         canvas_dd = FigureCanvasTkAgg(fig_dd, master=chart_content)
         canvas_dd.draw()
         canvas_dd.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-    plot_charts_internal(365)
+    def make_btn(txt, days):
+        b = tk.Button(tf_frame, text=txt, bg=BTN_BG, fg=BTN_FG, activebackground=COLOR_ACCENT, relief="flat", command=lambda: plot_charts(days))
+        b.pack(side=tk.LEFT, padx=2)
+
+    make_btn("1M", 30); make_btn("3M", 90); make_btn("6M", 180); make_btn("1Y", 365); make_btn("MAX", 1000)
+    plot_charts(365)
 
 
 # ==========================================
