@@ -48,9 +48,6 @@ st.markdown("""
             font-size: 0.9rem;
             color: #888;
         }
-        
-        /* Custom Table Styling overrides would go here if Streamlit supported full CSS injection for dataframes, 
-           but we use pandas Styler in the code below. */
     </style>
 """, unsafe_allow_html=True)
 
@@ -104,7 +101,7 @@ def analyze_sentiment(news_items):
     return "NEUTRAL", avg
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm: Finds similar past patterns to predict future."""
+    """The Oracle Ghost Algorithm"""
     if len(hist_series) < (lookback * 4): return None
     
     current_pattern = hist_series.iloc[-lookback:].values
@@ -267,7 +264,6 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
@@ -280,19 +276,19 @@ if not st.session_state['logged_in']:
         * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
         * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
         * **The Evaluation Algorithm:**
-            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
+            * **Verdict:** A clear command signal (STRONG BUY, BUY, HOLD, SELL).
+            * **Sniper Score (/100):** A quantitative scoring of the opportunity based on multiple factors.
+            * **Bubble Alert:** Detection of overvalued stocks (bubbles).
+            * **RVOL & RSI:** Detection of unusual volume (institutional interest) and oversold levels.
         
         **2. Deep Analysis (Deep Dive View)**
         Double-clicking opens a full "X-ray" tab for the stock:
         * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
         * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * *Return on Equity (ROE):* To check management efficiency.
-            * *Debt-to-Equity:* To assess debt burden.
-            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
-            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
+            * **Return on Equity (ROE):** To check management efficiency.
+            * **Debt-to-Equity:** To assess debt burden.
+            * **Free Cash Flow (FCF):** The "truth" regarding liquidity, beyond accounting profits.
+            * **Profit Margins:** Indication of a competitive advantage (Economic Moat).
         * **Wall Street:** Comparison with analyst forecasts and price targets.
         * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
         
@@ -316,7 +312,7 @@ if not st.session_state['logged_in']:
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
-            try: st.image(img, caption=cap, width=None) # Let Streamlit handle width
+            try: st.image(img, caption=cap, width=None) 
             except: st.info(f"[{cap} Preview]")
 
 # ==========================================
@@ -365,7 +361,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     except: pass
     st.divider()
 
-    # --- SCANNER ENGINE ---
+    # --- SCANNER ENGINE (Fixed Caching Error) ---
     @st.cache_data(ttl=300)
     def scan_market(tickers):
         results = []
@@ -418,6 +414,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 news = yf.Ticker(t).news
                 sent, sent_score = analyze_sentiment(news)
                 
+                # We remove 'YF_Obj' to prevent caching errors
                 results.append({
                     "Ticker": t, 
                     "Price": curr, 
@@ -431,8 +428,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "Sentiment": sent,
                     "History": df, 
                     "Info": info,
-                    "News": news,
-                    "YF_Obj": yf.Ticker(t)
+                    "News": news
                 })
             except: continue
         return results
@@ -548,7 +544,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
-            try: st.dataframe(target['YF_Obj'].institutional_holders.head())
+            # Re-fetch object here to avoid caching errors
+            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
             except: st.write("Data hidden")
 
     elif not run_scan:
