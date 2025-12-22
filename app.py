@@ -509,7 +509,7 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V8.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V10.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
@@ -556,13 +556,19 @@ if not st.session_state['logged_in']:
     
     # --- SCREENSHOTS WITH SNEAK PEEK BADGE ---
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2><br>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
-    caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
-    for c, img, cap in zip(cols, imgs, caps):
-        with c:
-            try: st.image(img, caption=cap, width="stretch") 
-            except: st.info(f"[{cap} Preview]")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        try: st.image("preview_dashboard.jpg", caption="Matrix Scanner", use_container_width=True)
+        except: st.info("[Dashboard Preview Missing]")
+        try: st.image("preview_ai.jpg", caption="AI Analyst", use_container_width=True)
+        except: st.info("[AI Preview Missing]")
+        
+    with c2:
+        try: st.image("preview_chart.jpg", caption="Deep Dive & Event Horizon", use_container_width=True)
+        except: st.info("[Chart Preview Missing]")
+        try: st.image("preview_heatmap.png", caption="Market Heatmap", use_container_width=True)
+        except: st.info("[Heatmap Preview Missing]")
             
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
@@ -632,7 +638,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v9.0 (Ultimate)")
+        st.caption("v10.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -804,7 +810,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             color = '#00FFCC' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
             return f'color: {color}; font-weight: bold'
             
-        st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), width="stretch", hide_index=True)
+        st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), use_container_width=True, hide_index=True)
         
         # --- MARKET HEATMAP ---
         if len(st.session_state['data']) > 1:
