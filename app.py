@@ -20,44 +20,58 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Professional Dark Mode Styling
+# Professional Dark Mode Styling (Bloomberg Style)
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
+        /* General App Styling */
+        .stApp {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+        }
+        
         /* Fonts */
-        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+        h1, h2, h3, h4 { font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; color: #66fcf1 !important; }
+        p, div, label, span { font-family: 'Consolas', monospace; }
         
         /* Buttons */
         .stButton>button {
             width: 100%;
-            border-radius: 4px;
+            border-radius: 2px;
             font-weight: bold;
             height: 3em;
             text-transform: uppercase;
-            border: 1px solid #333;
+            background-color: #1f2833;
+            color: #66fcf1;
+            border: 1px solid #45a29e;
+        }
+        .stButton>button:hover {
+            background-color: #45a29e;
+            color: #0b0c10;
         }
         
         /* Metrics Styling */
         div[data-testid="stMetricValue"] {
-            font-size: 1.3rem;
-            color: #00FFCC; /* Neon Cyan */
-            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            color: #00e676; /* Neon Green */
         }
         div[data-testid="stMetricLabel"] {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #aaa;
         }
         
-        /* Tables */
-        .stDataFrame { border: 1px solid #333; }
+        /* Table Styling */
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #333;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (PORTED FROM TKINTER) ---
+# --- 2. ADVANCED LOGIC (MATH, AI, ORACLE) ---
 # ==========================================
 
 def calculate_indicators(hist):
@@ -85,7 +99,7 @@ def calculate_indicators(hist):
     return hist
 
 def analyze_sentiment(news_items):
-    if not news_items: return "NEUTRAL", 0
+    if not news_items: return "NEUTRAL"
     score = 0
     count = 0
     for item in news_items:
@@ -97,14 +111,14 @@ def analyze_sentiment(news_items):
             count += 1
         except: continue
         
-    if count == 0: return "NEUTRAL", 0
+    if count == 0: return "NEUTRAL"
     avg = score / count
-    if avg > 0.05: return "BULLISH", avg
-    if avg < -0.05: return "BEARISH", avg
-    return "NEUTRAL", avg
+    if avg > 0.05: return "BULLISH"
+    if avg < -0.05: return "BEARISH"
+    return "NEUTRAL"
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
-    """The Oracle Ghost Algorithm (Exact Logic)"""
+    """The Oracle Ghost Algorithm"""
     if len(hist_series) < (lookback * 4): return None
     
     current_pattern = hist_series.iloc[-lookback:].values
@@ -114,9 +128,10 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
     
     best_score = -1
     best_idx = -1
+    # Search history (optimized step)
     search_range = len(hist_series) - lookback - projection - 1
     
-    for i in range(0, search_range, 2): 
+    for i in range(0, search_range, 3): 
         candidate = hist_series.iloc[i : i+lookback].values
         if candidate.max() == candidate.min(): continue
         cand_norm = (candidate - candidate.min()) / (candidate.max() - candidate.min())
@@ -242,7 +257,7 @@ if not st.session_state['logged_in']:
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
             <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
-            <p style='font-size: 24px; color: #aaa;'>The Ultimate Stock Market Intelligence System</p>
+            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence.</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -278,59 +293,38 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    # --- DESCRIPTION SECTION ---
     with st.expander("📖 READ FULL SYSTEM DESCRIPTION", expanded=True):
         st.markdown("""
         ### Warp Speed Terminal: The Ultimate Stock Market Intelligence System
-        Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
+        Warp Speed Terminal is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence.
         
         #### Detailed Features:
-        
         **1. Central Control Panel (Smart Dashboard)**
-        The Investor's Headquarters.
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
-        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
-        * **The Evaluation Algorithm:**
-            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
+        * **Macro Climate Bar:** Live monitoring (VIX, Bonds, BTC, Oil).
+        * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
         
-        **2. Deep Analysis (Deep Dive View)**
-        Double-clicking opens a full "X-ray" tab for the stock:
-        * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
-        * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * *Return on Equity (ROE):* To check management efficiency.
-            * *Debt-to-Equity:* To assess debt burden.
-            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
-            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
-        * **Wall Street:** Comparison with analyst forecasts and price targets.
-        * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
+        **2. Deep Analysis**
+        * **AI Tab:** NLP news sentiment (Bullish/Bearish).
+        * **Fundamentals:** P/E, PEG, ROE, FCF, Moat.
+        * **Risk:** Beta, Short Float, Institutional Holders.
         
         **3. Advanced Charting & "The Oracle"**
-        Three synchronized charts with selectable timeframes (1M, 3M, 6M, 1Y, MAX):
-        * **Price Chart with Benchmarking:**
-        * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
-        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
-        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, and Support/Resistance levels.
-        * **MACD:** Indicates Momentum and trend reversals.
-        * **Volume:** Color-coded volume for analyzing buyer/seller pressure.
+        * **Oracle Projection:** Algorithm scanning patterns to forecast future price (Ghost).
+        * **SPY Overlay:** Benchmark against S&P 500.
         
-        **4. Management & Export Tools**
-        * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
+        **4. Management**
+        * **Correlation Matrix** & **Data Export**.
         """)
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
-    imgs = ["dashboard.jpg", "analysis.png", "risk_insiders.png"]
+    # Using explicit file names as requested
+    imgs = ["dashboard.png", "analysis.jpg", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
             try: st.image(img, caption=cap, use_container_width=True) 
-            except: st.info(f"[{cap} Preview - File not found: {img}]")
-            
-    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+            except: st.info(f"[{cap} Preview]")
 
 # ==========================================
 # --- 6. VIEW: PAYWALL ---
@@ -348,8 +342,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], use_container_width=True)
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], use_container_width=True)
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
-    
-    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
@@ -361,44 +353,38 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.success("SYSTEM ONLINE 🟢")
-        st.markdown("---")
-        st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
-        st.markdown("---")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
+        st.markdown("---")
+        st.markdown("**Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (Robust Error Handling) ---
-    with st.container():
-        try:
-            macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
-            m_data = yf.download(macro_ticks, period="5d", progress=False)['Close']
-            
-            mc1, mc2, mc3, mc4 = st.columns(4)
-            names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
-            
-            if not m_data.empty and len(m_data) > 1:
-                last_row = m_data.iloc[-1]
-                prev_row = m_data.iloc[-2]
-                
-                for idx, (sym, name) in enumerate(names.items()):
-                    val = last_row.get(sym, np.nan)
-                    prev_val = prev_row.get(sym, np.nan)
-                    
-                    if pd.isna(val) or pd.isna(prev_val) or prev_val == 0:
-                        cols = [mc1, mc2, mc3, mc4]
-                        cols[idx].metric(name, "N/A", "N/A")
+    # --- MACRO BAR (FIXED NAN) ---
+    try:
+        macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
+        # Fetch minimal data to be fast
+        m_data = yf.download(macro_ticks, period="5d", progress=False)['Close']
+        
+        cols = st.columns(4)
+        names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
+        
+        if not m_data.empty and len(m_data) >= 2:
+            last = m_data.iloc[-1]
+            prev = m_data.iloc[-2]
+            for idx, (sym, name) in enumerate(names.items()):
+                try:
+                    val = last.get(sym, np.nan)
+                    pval = prev.get(sym, np.nan)
+                    if pd.notna(val) and pd.notna(pval):
+                        chg = ((val - pval) / pval) * 100
+                        cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
                     else:
-                        chg = ((val - prev_val) / prev_val) * 100
-                        cols = [mc1, mc2, mc3, mc4]
-                        cols[idx].metric(name, f"{val:.2f}", f"{chg:.2f}%")
-            else:
-                st.caption("Macro data unavailable (Market Closed/API Limit)")
-        except Exception as e: 
-            st.caption(f"Macro Data Error: {str(e)}")
-            
+                        cols[idx].metric(name, "N/A", "0.00%")
+                except: cols[idx].metric(name, "N/A", "0.00%")
+        else:
+            for idx, name in enumerate(names.values()): cols[idx].metric(name, "Loading...", "")
+    except: pass
     st.divider()
 
-    # --- SCANNER ENGINE (Fixed Caching & Logic) ---
+    # --- SCANNER ENGINE (ROBUST) ---
     @st.cache_data(ttl=300)
     def scan_market(tickers):
         results = []
@@ -408,7 +394,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         for t in tickers:
             try:
-                # Handle single vs multi ticker
+                # Data Handling
                 if len(tickers) > 1:
                     if t not in data.columns.levels[0]: continue
                     df = data[t].copy()
@@ -424,7 +410,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 chg = ((curr - prev)/prev)*100
                 rsi = df['RSI'].iloc[-1]
                 
-                # Verdict Logic (From Tkinter)
+                # Verdict Logic
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
                 ma200 = df['Close'].rolling(200).mean().iloc[-1]
                 
@@ -433,15 +419,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if curr < ma50 or rsi > 70: verdict = "SELL"
                 if rsi < 30: verdict = "STRONG BUY"
                 
-                # Sniper Score (From Tkinter)
+                # Sniper Score
                 score = 50
                 if verdict == "BUY": score += 20
                 if rsi < 30: score += 20
-                
                 vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                curr_vol = df['Volume'].iloc[-1]
-                rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
-                if rvol > 1.5: score += 10
+                if df['Volume'].iloc[-1] > vol_mean * 1.5: score += 10
                 
                 # Info
                 info = yf.Ticker(t).info
@@ -453,10 +436,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 peg = info.get('pegRatio', 'N/A')
                 
-                # Sentiment (Quick Check)
+                # Sentiment
                 news = yf.Ticker(t).news
-                sent, sent_score = analyze_sentiment(news)
+                sent = analyze_sentiment(news)
                 
+                # RVOL
+                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
+
                 results.append({
                     "Ticker": t, 
                     "Price": curr, 
@@ -486,7 +472,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.session_state['data'] = scan_market(ticks)
 
     if 'data' in st.session_state and st.session_state['data']:
-        # 1. TABLE (Matches Dashboard Screenshot)
+        # 1. TABLE
         df_view = pd.DataFrame([{
             "TICKER": d['Ticker'],
             "PRICE": f"{d['Price']:.2f}",
@@ -509,10 +495,18 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         # 2. ACTIONS
         c_act1, c_act2 = st.columns(2)
         with c_act1:
+            if st.button("Show Correlation Matrix"):
+                prices = {d['Ticker']: d['History']['Close'] for d in st.session_state['data']}
+                if len(prices) > 1:
+                    fig, ax = plt.subplots(figsize=(8, 4))
+                    sns.heatmap(pd.DataFrame(prices).corr(), annot=True, cmap='coolwarm', ax=ax)
+                    st.pyplot(fig)
+                else: st.warning("Need >1 asset for matrix.")
+        with c_act2:
             csv = df_view.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 EXPORT DATA TO CSV", csv, "warp_scan.csv", "text/csv", use_container_width=True)
+            st.download_button("Export CSV", csv, "warp_scan.csv", "text/csv")
 
-        # 3. DEEP DIVE
+        # 3. DEEP DIVE (RICH PLOTLY CHARTS)
         st.divider()
         st.subheader("🔬 DEEP DIVE ANALYSIS")
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
@@ -520,37 +514,34 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS", "NEWS AI", "RISK"])
         
-        with t1: # PLOTLY CHART (Replacing Matplotlib for better UI)
+        with t1: 
+            # PLOTLY INTERACTIVE CHART
             hist = target['History']
+            ghost = find_oracle_pattern(hist['Close'])
             
-            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                                vertical_spacing=0.03, row_heights=[0.7, 0.3])
-
-            # Candlestick
-            fig.add_trace(go.Candlestick(x=hist.index,
-                            open=hist['Open'], high=hist['High'],
-                            low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
             
-            # Bollinger
+            # Candlesticks
+            fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
+            # BB
             fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
-
+            
             # Oracle Ghost
-            ghost = find_oracle_pattern(hist['Close'])
             if ghost is not None:
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
-                fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash'), name='Oracle Ghost'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
 
             # MACD
             fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
             fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
 
-            fig.update_layout(height=600, template="plotly_dark", xaxis_rangeslider_visible=False)
+            fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
             st.plotly_chart(fig, use_container_width=True)
             
-        with t2: # Fundamentals
+        with t2:
             i = target['Info']
             c1, c2, c3 = st.columns(3)
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
@@ -560,23 +551,31 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c3.metric("Debt/Equity", i.get('debtToEquity', '-'))
             c3.metric("Free Cash Flow", f"${i.get('freeCashflow', 0)/1e9:.2f}B" if i.get('freeCashflow') else '-')
             
-        with t3: # News AI
+        with t3:
             st.write("Recent News Sentiment:")
             if target['News']:
                 for n in target['News'][:5]:
-                    sent, score = analyze_sentiment([n])
-                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
+                    # Check title existance
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
+                    # Sentiment
+                    try: 
+                        blob = TextBlob(t_title)
+                        pol = blob.sentiment.polarity
+                        sent = "BULLISH" if pol > 0.05 else "BEARISH" if pol < -0.05 else "NEUTRAL"
+                    except: sent = "NEUTRAL"
+                    
+                    color = "green" if sent == "BULLISH" else "red" if sent == "BEARISH" else "gray"
                     st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
             else: st.write("No news found.")
             
-        with t4: # Risk
+        with t4:
             i = target['Info']
             c1, c2 = st.columns(2)
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
+            # Safe Fetch
             try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
             except: st.write("Data hidden")
 
