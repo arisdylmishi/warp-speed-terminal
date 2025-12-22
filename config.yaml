@@ -3,12 +3,9 @@ credentials:
     admin:
       name: Admin User
       email: admin@gmail.com
-      password: "123"
+      password: "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"
       status: "active"
 cookie:
   expiry_days: 30
   key: "random_signature_key_warp_speed"
   name: "warp_speed_auth_cookie"
-preauthorized:
-  emails:
-  - admin@gmail.com
