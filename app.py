@@ -92,6 +92,7 @@ st.markdown("""
             letter-spacing: 1px;
         }
         
+        /* Links Styling */
         a { color: #00ccff !important; text-decoration: none; font-weight: bold; }
         a:hover { text-decoration: underline; color: #ff9900 !important; }
     </style>
@@ -513,7 +514,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v7.0 (Ultimate)")
+        st.caption("v7.1 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
@@ -622,7 +623,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
-                # NEWS HANDLING (SMART LINKS)
+                # NEWS HANDLING
                 try: news = stock.news
                 except: news = []
                 
@@ -647,14 +648,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         return results
 
     # --- MAIN INTERFACE ---
-    with st.expander("📘 SYSTEM MANUAL & LEGEND", expanded=False):
-        st.markdown("""
-        * **Sniper Score:** Proprietary rating (0-100) combining Technicals, Fundamentals, and Sentiment. >70 is Strong.
-        * **RVOL:** Relative Volume. Values > 1.5 indicate unusual institutional activity.
-        * **Oracle Ghost:** A projection line based on historical pattern matching.
-        * **Event Horizon:** Monte Carlo simulation showing probable future price range (Best/Worst Case).
-        """)
-
     with st.form("scanner"):
         c1, c2 = st.columns([3, 1])
         with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM COIN")
