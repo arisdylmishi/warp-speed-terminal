@@ -48,7 +48,6 @@ st.markdown("""
             color: #aaa;
         }
         
-        /* Custom Box for Explanations */
         .reason-box {
             background-color: #111;
             padding: 10px;
@@ -290,7 +289,7 @@ if not st.session_state['logged_in']:
         
         #### Detailed Features:
         **1. Central Control Panel (Smart Dashboard)**
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX, 10Y, BTC, Oil).
+        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil).
         * **Evaluation:** Verdicts, Sniper Score, Bubble Alerts, RVOL.
         
         **2. Deep Analysis**
@@ -300,7 +299,7 @@ if not st.session_state['logged_in']:
         
         **3. Advanced Charting & "The Oracle"**
         * **Oracle Projection:** Algorithm identifying past patterns (Ghost) to forecast future.
-        * **SPY Overlay:** Benchmark against S&P 500.
+        * **SPY Overlay:** Benchmarking against S&P 500.
         
         **4. Management**
         * **Correlation Matrix** & **Data Export**.
@@ -308,13 +307,12 @@ if not st.session_state['logged_in']:
         
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     cols = st.columns(3)
-    # Using explicit file names as requested (PNG)
-    imgs = ["dashboard.jpg", "analysis.png", "risk_insiders.png"]
+    imgs = ["dashboard.png", "analysis.png", "risk_insiders.png"]
     caps = ["Matrix Scanner", "Deep Dive", "Risk Profile"]
     for c, img, cap in zip(cols, imgs, caps):
         with c:
-            try: st.image(img, caption=cap, width="stretch") # FIX: width="stretch" per warning
-            except: st.info(f"[{cap} Preview - Check {img} in Repo]")
+            try: st.image(img, caption=cap, width="stretch") 
+            except: st.info(f"[{cap} Preview]")
             
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
 
@@ -330,7 +328,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
     }
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch") # FIX: width="stretch"
+    with col1: st.link_button("GET 1 MONTH (€25)", STRIPE_LINKS['1M'], width="stretch")
     with col2: st.link_button("GET 3 MONTHS (€23/mo)", STRIPE_LINKS['3M'], width="stretch")
     with col3: st.link_button("GET 6 MONTHS (€20/mo)", STRIPE_LINKS['6M'], width="stretch")
     with col4: st.link_button("GET 1 YEAR (€15/mo)", STRIPE_LINKS['1Y'], type="primary", width="stretch")
@@ -351,19 +349,19 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.markdown("---")
         st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
 
-    # --- MACRO BAR (FIXED: auto_adjust=True) ---
+    # --- MACRO BAR (Robust) ---
     with st.container():
         try:
             macro_ticks = ["^VIX", "^TNX", "BTC-USD", "CL=F"]
-            # FIX: auto_adjust=True
             m_data = yf.download(macro_ticks, period="5d", progress=False, auto_adjust=True)['Close']
             
             mc1, mc2, mc3, mc4 = st.columns(4)
             names = {"^VIX": "VIX (Fear)", "^TNX": "10Y Bond", "BTC-USD": "Bitcoin", "CL=F": "Oil"}
             
-            if not m_data.empty and len(m_data) >= 2:
-                last_row = m_data.iloc[-1]
-                prev_row = m_data.iloc[-2]
+            if not m_data.empty:
+                # Handle cases where some rows are NaN
+                last_row = m_data.ffill().iloc[-1] 
+                prev_row = m_data.ffill().iloc[-2]
                 
                 for idx, (sym, name) in enumerate(names.items()):
                     val = last_row.get(sym, np.nan)
@@ -377,33 +375,24 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                         cols = [mc1, mc2, mc3, mc4]
                         cols[idx].metric(name, f"{val:.2f}", f"{chg:+.2f}%")
             else:
-                st.caption("Macro data unavailable (Market Closed/API Limit)")
+                st.caption("Macro data unavailable")
         except: st.caption("Macro Data Offline")
             
     st.divider()
 
-    # --- SCANNER ENGINE ---
-    @st.cache_data(ttl=300)
-    def scan_market(tickers):
+    # --- SCANNER ENGINE (SINGLE TICKER FIX) ---
+    def scan_market_safe(tickers):
         results = []
-        try:
-            # FIX: auto_adjust=True
-            data = yf.download(tickers, period="1y", group_by='ticker', progress=False, threads=False, auto_adjust=True)
-        except: return []
-        
         for t in tickers:
             try:
-                # Handle single vs multi ticker logic (FIXED FOR SINGLE ASSET)
-                if len(tickers) == 1:
-                    df = data.copy() # Single asset usually returns direct DF
-                    # Fix for some yfinance versions returning MultiIndex even for single
-                    if isinstance(df.columns, pd.MultiIndex):
-                        df.columns = df.columns.get_level_values(0)
-                else:
-                    if t not in data.columns.levels[0]: continue
-                    df = data[t].copy()
+                # Fetch Single Ticker Safely
+                stock = yf.Ticker(t)
+                df = stock.history(period="1y")
                 
-                if df.empty or len(df) < 50: continue
+                if df.empty or len(df) < 50: 
+                    # Try downloading if history fails (fallback)
+                    df = yf.download(t, period="1y", progress=False, auto_adjust=True)
+                    if df.empty or len(df) < 50: continue
                 
                 # Indicators
                 df = calculate_indicators(df)
@@ -412,12 +401,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 chg = ((curr - prev)/prev)*100
                 rsi = df['RSI'].iloc[-1]
                 
-                # Verdict & Explanations Logic
+                # Logic
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
-                ma200 = df['Close'].rolling(200).mean().iloc[-1]
                 
                 verdict = "HOLD"
-                reasons = [] # Store reasons for Deep Dive
+                reasons = [] 
                 
                 if curr > ma50:
                     reasons.append(f"✓ Price (${curr:.2f}) > 50MA (${ma50:.2f}) -> Bullish Trend")
@@ -429,9 +417,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 if rsi < 30: 
                     verdict = "STRONG BUY"
                     reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
-                elif rsi > 70:
-                    verdict = "SELL"
-                    reasons.append(f"✗ RSI ({rsi:.0f}) is Overbought -> Pullback Risk")
                 
                 # Sniper Score
                 score = 50
@@ -444,28 +429,23 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 rvol = curr_vol / vol_mean if vol_mean > 0 else 1.0
                 if rvol > 1.5: 
                     score += 10
-                    reasons.append(f"⚡ High Volume (RVOL {rvol:.1f}) -> Institutional Activity")
+                    reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
                 
                 # Info
-                info = yf.Ticker(t).info
+                info = stock.info
                 pe = info.get('trailingPE', None)
                 bubble = "NO"
-                if pe and pe > 35 and curr > ma200 * 1.4: 
+                if pe and pe > 35: 
                     bubble = "🚨 YES"
                     score -= 20
-                    reasons.append("⚠️ Bubble Alert: High P/E & Extended Price")
                 
                 peg = info.get('pegRatio', 'N/A')
-                
-                # Wall Street Data
                 target_price = info.get('targetMeanPrice', 'N/A')
                 consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
                 
                 # Sentiment
-                news = yf.Ticker(t).news
+                news = stock.news
                 sent, sent_score = analyze_sentiment(news)
-                if sent == "BULLISH": reasons.append("✓ News Sentiment is Positive")
-                elif sent == "BEARISH": reasons.append("✗ News Sentiment is Negative")
                 
                 results.append({
                     "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
@@ -473,7 +453,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "History": df, "Info": info, "News": news, "Reasons": reasons,
                     "TargetPrice": target_price, "Consensus": consensus
                 })
-            except Exception as e: continue
+            except: continue
         return results
 
     # --- MAIN INTERFACE ---
@@ -483,14 +463,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with c2: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if run_scan:
-        ticks = [t.strip().upper() for t in query.replace(",", " ").split()]
+        ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
         if ticks:
-            st.session_state['data'] = scan_market(ticks)
+            with st.spinner(f"Scanning {len(ticks)} assets..."):
+                st.session_state['data'] = scan_market_safe(ticks)
         else:
-            st.warning("Please enter at least one symbol.")
+            st.warning("Please enter a symbol.")
 
     if 'data' in st.session_state and st.session_state['data']:
-        # 1. TABLE (Dashboard Style)
+        # 1. TABLE
         df_view = pd.DataFrame([{
             "TICKER": d['Ticker'],
             "PRICE": f"{d['Price']:.2f}",
@@ -508,7 +489,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             color = '#00FFCC' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
             return f'color: {color}; font-weight: bold'
             
-        # FIX: width="stretch" per warning
         st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), width="stretch", hide_index=True)
         
         # 2. ACTIONS
@@ -534,7 +514,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         t1, t2, t3, t4 = st.tabs(["CHART & ORACLE", "FUNDAMENTALS & WALL ST", "NEWS AI", "RISK"])
         
         with t1: 
-            # PLOTLY CHART
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             
@@ -546,19 +525,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 row_heights=[0.7, 0.3]
             )
             
-            # Candlesticks
             fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
-            # BB
             fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
             
-            # Oracle Ghost
             if ghost is not None:
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
                 fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
 
-            # MACD
             fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
             fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
@@ -566,9 +541,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
             st.plotly_chart(fig, use_container_width=True)
             
-            # --- VERDICT EXPLANATION BOX (FIXED KEYERROR) ---
             st.markdown("#### 🧠 VERDICT LOGIC")
-            # Use .get() to prevent crashes
             reasons = target.get('Reasons', []) 
             if reasons:
                 for reason in reasons:
@@ -576,7 +549,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             else:
                 st.info("No specific triggers for this asset.")
             
-        with t2: # Fundamentals & Wall St
+        with t2: 
             i = target['Info']
             
             st.markdown("##### 🏦 WALL STREET")
@@ -589,19 +562,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Market Cap", format_large_number(i.get('marketCap')))
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
-            
             c2.metric("Dividend Yield", f"{i.get('dividendYield', 0)*100:.2f}%" if i.get('dividendYield') else '-')
             c2.metric("PEG Ratio", i.get('pegRatio', '-'))
-            
             c3.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
             c3.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
-            
             c4.metric("Free Cash Flow", format_large_number(i.get('freeCashflow')))
             c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
             
-        with t3: # News AI
+        with t3: 
             st.write("Recent News Sentiment:")
-            # Use .get() for safety
             news = target.get('News', [])
             if news:
                 for n in news[:5]:
@@ -612,13 +581,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     st.markdown(f"**:{color}[{sent}]** [{t_title}]({t_link})")
             else: st.write("No news found.")
             
-        with t4: # Risk
+        with t4: 
             i = target['Info']
             c1, c2 = st.columns(2)
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
-            # Re-fetch object here to avoid caching errors
             try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
             except: st.write("Data hidden")
 
