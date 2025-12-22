@@ -17,19 +17,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS για να μοιάζει με Web App και όχι απλό script
+# Custom CSS
 st.markdown("""
     <style>
-        /* Κρύψε το menu του Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Stylized Headers */
         h1 { font-family: 'Helvetica Neue', sans-serif; font-weight: 800; letter-spacing: -1px; }
         h2, h3 { font-family: 'Helvetica Neue', sans-serif; font-weight: 600; }
         
-        /* Pricing Cards Look */
         .stButton>button {
             width: 100%;
             border-radius: 5px;
@@ -37,7 +34,6 @@ st.markdown("""
             height: 3em;
         }
         
-        /* Highlight boxes */
         div[data-testid="stMetricValue"] {
             font-size: 1.8rem;
         }
@@ -98,7 +94,6 @@ def add_subscription_days(email, days_to_add):
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
-    # BACKDOOR ΓΙΑ ADMIN
     if email == "admin": return True
     
     if not current_expiry_str: return False
@@ -144,7 +139,6 @@ if "payment_success" in query_params and st.session_state['logged_in']:
 # ==========================================
 if not st.session_state['logged_in']:
     
-    # HERO SECTION
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
             <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
@@ -165,7 +159,6 @@ if not st.session_state['logged_in']:
         * **Risk Profiles:** See major holders, insider activity, and short float.
         """)
         
-        # LOGIN / SIGNUP BOX
         st.markdown("---")
         st.subheader("🔑 ACCESS TERMINAL")
         
@@ -174,8 +167,8 @@ if not st.session_state['logged_in']:
         with tab_login:
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type='password', key="login_pass")
-            if st.button("LAUNCH TERMINAL", type="primary"):
-                # --- BACKDOOR CHECK ---
+            # UPDATED: width="stretch" instead of use_container_width
+            if st.button("LAUNCH TERMINAL", type="primary", width="stretch"):
                 if email == "admin" and password == "PROTOS123":
                     st.session_state['logged_in'] = True
                     st.session_state['user_email'] = "admin"
@@ -184,7 +177,6 @@ if not st.session_state['logged_in']:
                     st.success("ADMIN OVERRIDE ACTIVATED 🔓")
                     time.sleep(0.5)
                     st.rerun()
-                # ----------------------
                 else:
                     user_record = login_user_db(email, password)
                     if user_record:
@@ -203,7 +195,8 @@ if not st.session_state['logged_in']:
             new_email = st.text_input("New Email", key="signup_email")
             new_pass = st.text_input("New Password", type='password', key="signup_pass")
             conf_pass = st.text_input("Confirm Password", type='password', key="signup_conf")
-            if st.button("CREATE ACCOUNT"):
+            # UPDATED: width="stretch"
+            if st.button("CREATE ACCOUNT", width="stretch"):
                 if new_pass == conf_pass and len(new_pass) > 0:
                     if add_user(new_email, new_pass):
                         st.success("Account created! Please log in.")
@@ -213,31 +206,29 @@ if not st.session_state['logged_in']:
                     st.warning("Passwords do not match.")
 
     with col_main_2:
-        # VIDEO SHOWCASE
         st.video("https://youtu.be/ql1suvTu_ak") 
         st.caption("See the Warp Speed Terminal in action.")
 
-    # SCREENSHOT GALLERY (Features)
     st.markdown("<br><br><h2 style='text-align: center; color: #fff;'>PLATFORM PREVIEW</h2><br>", unsafe_allow_html=True)
     
     feat_col1, feat_col2, feat_col3 = st.columns(3)
     
     with feat_col1:
         st.markdown("**THE MATRIX SCANNER**")
-        # Χρησιμοποιούμε την εικόνα image_2.png μετονομασμένη σε dashboard.png
-        try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan & Verdicts", use_container_width=True)
+        # UPDATED: width="stretch"
+        try: st.image("dashboard.png", caption="Real-time Multi-Asset Scan & Verdicts", width="stretch")
         except: st.info("[Image: dashboard.png not found]")
         
     with feat_col2:
         st.markdown("**DEEP DIVE ANALYSIS**")
-        # Χρησιμοποιούμε την εικόνα image_3.png μετονομασμένη σε analysis.png
-        try: st.image("analysis.png", caption="Automated Technicals, Levels & Sentiment", use_container_width=True)
+        # UPDATED: width="stretch"
+        try: st.image("analysis.png", caption="Automated Technicals, Levels & Sentiment", width="stretch")
         except: st.info("[Image: analysis.png not found]")
 
     with feat_col3:
         st.markdown("**RISK & INSIDERS**")
-        # Χρησιμοποιούμε την εικόνα image_0.png μετονομασμένη σε risk_insiders.png
-        try: st.image("risk_insiders.png", caption="Major Holders & Risk Profile", use_container_width=True)
+        # UPDATED: width="stretch"
+        try: st.image("risk_insiders.png", caption="Major Holders & Risk Profile", width="stretch")
         except: st.info("[Image: risk_insiders.png not found]")
 
     st.markdown("---")
@@ -255,13 +246,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     st.markdown("<h3 style='text-align:center;'>Choose your Plan</h3>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; color: #aaa;'>Unlock full access to the Matrix, Deep Dives, and Sniper alerts.</p><br>", unsafe_allow_html=True)
 
-    # --- STRIPE LINKS & CALCULATIONS ---
-    # Pricing logic:
-    # 1M = 25/mo
-    # 3M = 23/mo (Total 69 vs 75) -> Save 6
-    # 6M = 20/mo (Total 120 vs 150) -> Save 30
-    # 1Y = 15/mo (Total 180 vs 300) -> Save 120
-    
     STRIPE_LINKS = {
         "1M": "https://buy.stripe.com/00w28l6qUdc96eJ5nYeAg03?days=30",
         "3M": "https://buy.stripe.com/14A9ANaHa8VT46B5nYeAg02?days=90",
@@ -280,7 +264,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("GET 1 MONTH", STRIPE_LINKS['1M'], use_container_width=True)
+        # UPDATED: width="stretch"
+        st.link_button("GET 1 MONTH", STRIPE_LINKS['1M'], width="stretch")
 
     with col2:
         st.markdown("""
@@ -291,7 +276,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("GET 3 MONTHS", STRIPE_LINKS['3M'], use_container_width=True)
+        # UPDATED: width="stretch"
+        st.link_button("GET 3 MONTHS", STRIPE_LINKS['3M'], width="stretch")
 
     with col3:
         st.markdown("""
@@ -302,10 +288,10 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("GET 6 MONTHS", STRIPE_LINKS['6M'], use_container_width=True)
+        # UPDATED: width="stretch"
+        st.link_button("GET 6 MONTHS", STRIPE_LINKS['6M'], width="stretch")
 
     with col4:
-        # HIGHLIGHTED CARD
         st.markdown("""
         <div style='background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #00FFCC; position: relative;'>
             <div style='position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #00FFCC; color: #000; padding: 2px 10px; border-radius: 10px; font-weight: bold; font-size: 12px;'>BEST VALUE</div>
@@ -315,7 +301,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
             <br>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("GET 1 YEAR", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
+        # UPDATED: width="stretch"
+        st.link_button("GET 1 YEAR", STRIPE_LINKS['1Y'], type="primary", width="stretch")
 
     st.divider()
     if st.button("Logout"):
@@ -345,37 +332,77 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         data = []
         unique_tickers = list(set([t.strip().upper() for t in tickers_list if t.strip()]))
         if not unique_tickers: return []
+        
         try:
+            # Download data
             hist_data = yf.download(unique_tickers, period="2y", interval="1d", progress=False, auto_adjust=True)
             if hist_data.empty: return []
-        except: return []
+        except Exception as e:
+            st.error(f"Market Data Error: {e}")
+            return []
 
         for ticker in unique_tickers:
             try:
+                # Handle MultiIndex vs Single Index from YFinance
                 if len(unique_tickers) > 1:
                     if ticker not in hist_data['Close'].columns: continue
                     h_close = hist_data['Close'][ticker].dropna()
                 else:
                     h_close = hist_data['Close'].dropna()
+                
                 if len(h_close) < 50: continue
-                current_price = float(h_close.iloc[-1])
-                prev_close = float(h_close.iloc[-2])
+                
+                # --- FIX: Handling Float Conversion Warning ---
+                # We use .iloc[-1] and check if it needs .item() to become a scalar
+                curr_val = h_close.iloc[-1]
+                prev_val = h_close.iloc[-2]
+                
+                # Safe convert to float
+                current_price = float(curr_val.item()) if hasattr(curr_val, 'item') else float(curr_val)
+                prev_close = float(prev_val.item()) if hasattr(prev_val, 'item') else float(prev_val)
+                
                 change_pct = ((current_price - prev_close) / prev_close) * 100
+                
+                # MA & RSI Calculation
                 ma50 = h_close.rolling(50).mean().iloc[-1]
-                delta = h_close.diff(); gain = delta.where(delta > 0, 0); loss = -delta.where(delta < 0, 0)
+                if hasattr(ma50, 'item'): ma50 = float(ma50.item())
+                
+                delta = h_close.diff()
+                gain = delta.where(delta > 0, 0)
+                loss = -delta.where(delta < 0, 0)
+                
                 avg_gain = gain.ewm(com=13, adjust=False, min_periods=14).mean()
                 avg_loss = loss.ewm(com=13, adjust=False, min_periods=14).mean()
-                rs = avg_gain / avg_loss; rsi_val = 100 - (100 / (1 + rs)); rsi_final = rsi_val.iloc[-1]
-                t_obj = yf.Ticker(ticker); info = t_obj.info
-                verdict = "HOLD"; score = 0
+                
+                rs = avg_gain / avg_loss
+                rsi_val = 100 - (100 / (1 + rs))
+                rsi_final = rsi_val.iloc[-1]
+                if hasattr(rsi_final, 'item'): rsi_final = float(rsi_final.item())
+                
+                t_obj = yf.Ticker(ticker)
+                info = t_obj.info
+                
+                verdict = "HOLD"
+                score = 0
                 if current_price > ma50: score += 40
                 if rsi_final < 35: score += 30 
                 if change_pct > 0 and rsi_final > 50: score += 10
+                
                 if score >= 60: verdict = "BUY"
                 elif score <= 20: verdict = "SELL"
-                data.append({"ticker": ticker, "current_price": current_price, "change_pct": change_pct, 
-                             "verdict": verdict, "rsi": rsi_final, "hist_close": h_close, "info": info})
-            except: continue
+                
+                data.append({
+                    "ticker": ticker, 
+                    "current_price": current_price, 
+                    "change_pct": change_pct, 
+                    "verdict": verdict, 
+                    "rsi": rsi_final, 
+                    "hist_close": h_close, 
+                    "info": info
+                })
+            except Exception as e: 
+                # Skip this ticker if it fails
+                continue
         return data
 
     st.title("🚀 WARP SPEED TERMINAL")
@@ -400,7 +427,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         
         def color_verdict(val):
             return f'color: {"#00FFCC" if val == "BUY" else "#ff4b4b" if val == "SELL" else "#ffffff"}; font-weight: bold'
-        st.dataframe(df_display.style.map(color_verdict, subset=['VERDICT']), use_container_width=True, hide_index=True)
+        
+        # UPDATED: width="stretch"
+        st.dataframe(df_display.style.map(color_verdict, subset=['VERDICT']), width="stretch", hide_index=True)
 
         st.markdown("### 🔬 DEEP DIVE ANALYSIS")
         selected_ticker = st.selectbox("Select Asset for Inspection:", [s['ticker'] for s in st.session_state['stock_data']])
