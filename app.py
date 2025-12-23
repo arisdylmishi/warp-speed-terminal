@@ -14,7 +14,8 @@ from collections import Counter
 import re
 import requests
 import xml.etree.ElementTree as ET
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
 # ==========================================
