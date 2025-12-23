@@ -16,12 +16,6 @@ import requests
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-# ΠΡΕΠΕΙ να είναι η πρώτη εντολή Streamlit στο αρχείο
-st.set_page_config(page_title="Warpspeed Terminal")
-
-# Εισαγωγή του Google Verification Tag
-st.html('<meta name="google-site-verification" content="ev9-BYQBKAN7-ZgDGOr_IqnjgX92IQv7Q7L1vXA7fR0" />')
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
 # ==========================================
