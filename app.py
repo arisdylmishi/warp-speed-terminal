@@ -172,9 +172,17 @@ st.markdown("""
             border-bottom-color: var(--primary) !important;
         }
 
-        /* DATAFRAME */
+        /* DATAFRAME & TABLES FIX */
         [data-testid="stDataFrame"] {
             border: 1px solid var(--border);
+            background-color: #000 !important;
+        }
+        [data-testid="stDataFrame"] * {
+            color: var(--text) !important; /* Ensure text is visible */
+        }
+        /* Force table header/cells to be visible against black */
+        div[data-testid="stTable"] {
+            color: var(--text) !important;
         }
 
         /* PAYWALL CARDS MATCHING HTML FEATURES */
@@ -641,7 +649,7 @@ if not st.session_state['logged_in']:
         try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
 
-    # --- RE-ADDED: APP SNEAK PEEK SECTION ---
+    # --- SNEAK PEEK FROM OUR APP (RE-ADDED) ---
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -723,7 +731,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v14.0 (Cyberpunk)")
+        st.caption("v15.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -1069,16 +1077,28 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1, c2 = st.columns(2)
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
-            st.caption("Institutional Holders:")
             
-            # FIX: Improved Institutional Holders Fetching
+            st.markdown("---")
+            st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
+            
+            # IMPROVED HOLDINGS FETCHING
             try: 
-                holders = yf.Ticker(sel_t).institutional_holders
+                ticker_obj = yf.Ticker(sel_t)
+                
+                # 1. Try Institutional Holders
+                holders = ticker_obj.institutional_holders
+                
+                # 2. Fallback to Major Holders if empty
+                if holders is None or holders.empty:
+                    holders = ticker_obj.major_holders
+                
+                # 3. Display
                 if holders is not None and not holders.empty:
-                    st.dataframe(holders.head())
+                    # Convert to string to prevent formatting issues on dark mode
+                    st.dataframe(holders.astype(str), use_container_width=True)
                 else:
                     st.info("No institutional data available for this asset.")
-            except: 
+            except Exception as e: 
                 st.write("Data currently unavailable.")
 
     elif not run_scan:
