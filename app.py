@@ -741,7 +741,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v17.0 (Cyberpunk)")
+        st.caption("v18.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -896,7 +896,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.warning("Please enter a symbol.")
 
     if 'data' in st.session_state and st.session_state['data']:
-        # 1. TABLE
+        # 1. TABLE (CHANGED TO ST.TABLE FOR CYBERPUNK THEME COMPATIBILITY)
         df_view = pd.DataFrame([{
             "TICKER": d['Ticker'],
             "PRICE": f"{d['Price']:.2f}",
@@ -912,8 +912,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         def highlight_verdict(val):
             color = '#00FF41' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
             return f'color: {color}; font-weight: bold'
-            
-        st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), use_container_width=True, hide_index=True)
+        
+        # FIX: Using st.table ensures correct text/background colors in the dark theme
+        st.table(df_view.style.map(highlight_verdict, subset=['VERDICT']))
         
         # --- MARKET HEATMAP ---
         if len(st.session_state['data']) > 1:
