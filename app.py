@@ -1,8 +1,5 @@
 import streamlit as st
-# --- ΔΙΟΡΘΩΣΗ: Αφαίρεση της προβληματικής βιβλιοθήκης ---
-# from st_supabase_connection import SupabaseConnection 
-from supabase import create_client, Client # <--- ΝΕΑ ΒΙΒΛΙΟΘΗΚΗ
-
+from supabase import create_client, Client
 import hashlib
 import yfinance as yf
 import pandas as pd
@@ -382,10 +379,8 @@ def get_spy_data():
     except: return None
 
 # ==========================================
-# --- 3. CLOUD DATABASE (SUPABASE - DIRECT FIX) ---
+# --- 3. CLOUD DATABASE (SUPABASE DIRECT) ---
 # ==========================================
-
-# --- ΔΙΟΡΘΩΣΗ: Απευθείας σύνδεση με supabase-py ---
 @st.cache_resource
 def init_connection():
     # Διαβάζει τα secrets από το [supabase]
@@ -394,7 +389,6 @@ def init_connection():
     return create_client(url, key)
 
 supabase = init_connection()
-# --------------------------------------------------
 
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -408,7 +402,6 @@ def add_user(email, password):
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
-        # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
         supabase.table("users").insert({
             "email": email, 
             "password": hashed_pw, 
@@ -421,17 +414,13 @@ def add_user(email, password):
 
 def login_user_db(email, password):
     hashed_pw = make_hashes(password)
-    # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
     res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
     if res.data:
-        # Μετατροπή σε format λίστας για συμβατότητα με τον υπόλοιπο κώδικα
-        user_list = [list(res.data[0].values())]
-        return user_list
+        return [list(res.data[0].values())]
     return []
 
 def add_subscription_days(email, days_to_add):
     new_expiry = (datetime.now() + timedelta(days=int(days_to_add))).strftime("%Y-%m-%d")
-    # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
     supabase.table("users").update({"status": "active", "expiry_date": new_expiry}).eq("email", email).execute()
     return new_expiry
 
@@ -441,7 +430,6 @@ def check_subscription_validity(email, current_expiry_str):
     try:
         expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
         if datetime.now() > expiry_date + timedelta(days=1):
-            # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
             supabase.table("users").update({"status": "expired"}).eq("email", email).execute()
             return False 
         return True
@@ -460,11 +448,14 @@ if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 # ==========================================
 query_params = st.query_params
 
-# Ελέγχουμε αν υπάρχει το 'success' ΚΑΙ αν το 'token' ταιριάζει με το μυστικό μας
 if "payment_success" in query_params and st.session_state['logged_in']:
     token_received = query_params.get("token", "")
-    secret_check = st.secrets["payment"]["secret_token"]
-    
+    try:
+        secret_check = st.secrets["payment"]["secret_token"]
+    except KeyError:
+        st.error("SYSTEM ERROR: Payment secret not configured.")
+        secret_check = "MISSING_SECRET"
+
     if token_received == secret_check:
         try:
             days_purchased = query_params.get("days", 30)
@@ -472,16 +463,15 @@ if "payment_success" in query_params and st.session_state['logged_in']:
             st.session_state['user_status'] = 'active'
             st.session_state['expiry_date'] = new_date
             st.toast(f"VIP ACTIVATED until {new_date}", icon="🚀")
-            # Καθαρίζουμε το URL για να μην φαίνεται το token
             st.query_params.clear()
             time.sleep(2)
             st.rerun()
         except Exception as e:
             st.error(f"Activation Error: {e}")
     else:
-        # Αν κάποιος προσπαθήσει να κλέψει χωρίς το token
         st.error("⛔ SECURITY ALERT: Unauthorized payment attempt detected.")
         st.query_params.clear()
+
 # ==========================================
 # --- 5. VIEW: LANDING PAGE ---
 # ==========================================
@@ -493,6 +483,11 @@ if not st.session_state['logged_in']:
         </div>
     """, unsafe_allow_html=True)
     
+    # --- FIX: Show message if user returned from payment but session was lost ---
+    if "payment_success" in st.query_params:
+        st.success("✅ PAYMENT RECEIVED! Please Log In to complete activation.", icon="🔓")
+    # -----------------------------------------------------------------------
+
     c1, c2 = st.columns([1, 1], gap="large")
     with c1:
         st.markdown("### ⚡ UNLEASH THE DATA")
