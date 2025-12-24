@@ -7,4 +7,4 @@ seaborn
 textblob
 requests
 plotly
-st-supabase-connection
+supabase
