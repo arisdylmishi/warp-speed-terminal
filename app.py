@@ -49,12 +49,12 @@ st.markdown("""
             font-family: 'Fira Code', monospace;
         }
 
-        /* FIX: Apply Font ONLY to text, NOT icons to prevent "keyboard arrow" glitch */
-        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stDataFrame {
+        /* FONT FIX: Apply only to specific elements */
+        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable {
             font-family: 'Fira Code', monospace !important;
         }
 
-        /* SCANLINE OVERLAY (The TV Effect) */
+        /* SCANLINE OVERLAY */
         .stApp::before {
             content: " ";
             position: fixed;
@@ -73,7 +73,7 @@ st.markdown("""
             letter-spacing: 1px;
         }
 
-        /* INPUT FIELDS (Terminal Style) */
+        /* INPUT FIELDS */
         .stTextInput input {
             background-color: #000 !important;
             color: var(--primary) !important;
@@ -84,7 +84,7 @@ st.markdown("""
             box-shadow: 0 0 10px var(--primary) !important;
         }
 
-        /* BUTTONS (Pulse Effect) */
+        /* BUTTONS */
         .stButton>button {
             width: 100%;
             border-radius: 0px;
@@ -123,7 +123,6 @@ st.markdown("""
             border-radius: 0px !important;
         }
         
-        /* CUSTOM ALERTS */
         .ai-box {
             background-color: rgba(0, 212, 255, 0.05);
             padding: 15px;
@@ -167,22 +166,37 @@ st.markdown("""
             border-bottom-color: var(--primary) !important;
         }
 
-        /* --- TABLE FIXES (Institutional Holders) --- */
+        /* --- TABLE FIXES (CRITICAL) --- */
+        /* Force Dataframes to match theme */
         [data-testid="stDataFrame"] {
             border: 1px solid var(--border);
-            background-color: #000 !important;
+            background-color: #050505 !important;
         }
-        /* Force table header/cells to be visible */
-        [data-testid="stDataFrame"] div, [data-testid="stDataFrame"] span {
+        [data-testid="stDataFrame"] * {
             color: var(--text) !important;
+            background-color: #050505 !important;
         }
-        /* Column headers */
-        [data-testid="stDataFrame"] th {
+        
+        /* Force Standard Tables (st.table) to match theme */
+        table {
+            color: var(--text) !important;
+            background-color: #050505 !important;
+            border-collapse: collapse !important;
+            width: 100%;
+            font-family: 'Fira Code', monospace !important;
+        }
+        th {
             background-color: #111 !important;
             color: var(--primary) !important;
+            border-bottom: 1px solid var(--primary) !important;
+            padding: 10px !important;
+        }
+        td {
+            border-bottom: 1px solid #333 !important;
+            padding: 8px !important;
         }
 
-        /* PAYWALL CARDS MATCHING HTML FEATURES */
+        /* PAYWALL CARDS */
         .plan-card {
             border: 1px solid var(--primary);
             background-color: rgba(0,0,0,0.8);
@@ -443,7 +457,6 @@ def get_spy_data():
 # ==========================================
 @st.cache_resource
 def init_connection():
-    # SECURE CONNECTION: USES STREAMLIT SECRETS ONLY
     try:
         url = st.secrets["supabase"]["url"]
         key = st.secrets["supabase"]["key"]
@@ -728,7 +741,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v16.0 (Cyberpunk)")
+        st.caption("v17.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -1078,23 +1091,22 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            # --- IMPROVED HOLDINGS FETCHING ---
+            # --- IMPROVED HOLDINGS FETCHING (USING ST.TABLE) ---
             try: 
                 ticker_obj = yf.Ticker(sel_t)
-                # 1. Try Institutional Holders
                 holders = ticker_obj.institutional_holders
-                # 2. Fallback to Major Holders if empty
+                
+                # Fallback
                 if holders is None or holders.empty:
                     holders = ticker_obj.major_holders
                 
-                # 3. Display
                 if holders is not None and not holders.empty:
-                    # Convert to string to prevent formatting issues on dark mode
-                    st.dataframe(holders.astype(str), use_container_width=True)
+                    # Use st.table which renders pure HTML and respects our CSS better than dataframe canvas
+                    st.table(holders.astype(str))
                 else:
-                    st.info("No institutional data available for this asset via free API.")
+                    st.info("No institutional data available via API.")
             except Exception as e: 
-                st.warning("Data currently unavailable.")
+                st.error("System Error: Unable to fetch holdings data.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
