@@ -1,5 +1,5 @@
 import streamlit as st
-import sqlite3
+from st_supabase_connection import SupabaseConnection
 import hashlib
 import yfinance as yf
 import pandas as pd
@@ -16,6 +16,7 @@ import requests
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 # ==========================================
 # --- 1. CONFIGURATION & STYLE ---
 # ==========================================
@@ -293,7 +294,7 @@ BUBBLE RISK:  {t['Bubble']}
 
 4. FUNDAMENTALS
 ---------------------
-Market Cap:   ${format_large_number(t['Info'].get('marketCap', 0))}
+Market Cap:   {format_large_number(t['Info'].get('marketCap', 0))}
 P/E Ratio:    {t['Info'].get('trailingPE', 'N/A')}
 PEG Ratio:    {t['PEG']}
 Wall St Target: ${t['TargetPrice']}
@@ -378,15 +379,9 @@ def get_spy_data():
     except: return None
 
 # ==========================================
-# --- 3. DATABASE (LOGIN SYSTEM) ---
+# --- 3. CLOUD DATABASE (SUPABASE) ---
 # ==========================================
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (email TEXT PRIMARY KEY, password TEXT, status TEXT, join_date TEXT, expiry_date TEXT)''')
-    conn.commit()
-    conn.close()
+st_conn = st.connection("supabase", type=SupabaseConnection)
 
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -396,36 +391,32 @@ def check_hashes(password, hashed_text):
     return False
 
 def add_user(email, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
     hashed_pw = make_hashes(password)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
-        c.execute('INSERT INTO users(email, password, status, join_date, expiry_date) VALUES (?,?,?,?,?)', 
-                  (email, hashed_pw, 'expired', current_date, past_date))
-        conn.commit()
-        result = True
-    except: result = False
-    conn.close()
-    return result
+        st_conn.table("users").insert({
+            "email": email, 
+            "password": hashed_pw, 
+            "status": 'expired', 
+            "join_date": current_date, 
+            "expiry_date": past_date
+        }).execute()
+        return True
+    except: return False
 
 def login_user_db(email, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
     hashed_pw = make_hashes(password)
-    c.execute('SELECT * FROM users WHERE email =? AND password = ?', (email, hashed_pw))
-    data = c.fetchall()
-    conn.close()
-    return data
+    res = st_conn.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
+    if res.data:
+        # Μετατροπή σε format λίστας για συμβατότητα με τον υπόλοιπο κώδικα
+        user_list = [list(res.data[0].values())]
+        return user_list
+    return []
 
 def add_subscription_days(email, days_to_add):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
     new_expiry = (datetime.now() + timedelta(days=int(days_to_add))).strftime("%Y-%m-%d")
-    c.execute('UPDATE users SET status = ?, expiry_date = ? WHERE email = ?', ('active', new_expiry, email))
-    conn.commit()
-    conn.close()
+    st_conn.table("users").update({"status": "active", "expiry_date": new_expiry}).eq("email", email).execute()
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
@@ -434,16 +425,10 @@ def check_subscription_validity(email, current_expiry_str):
     try:
         expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
         if datetime.now() > expiry_date + timedelta(days=1):
-            conn = sqlite3.connect('users.db')
-            c = conn.cursor()
-            c.execute('UPDATE users SET status = ? WHERE email = ?', ('expired', email))
-            conn.commit()
-            conn.close()
+            st_conn.table("users").update({"status": "expired"}).eq("email", email).execute()
             return False 
         return True
     except: return False
-
-init_db()
 
 # ==========================================
 # --- 4. SESSION & AUTH FLOW ---
