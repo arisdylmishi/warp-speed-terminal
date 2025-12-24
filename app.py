@@ -455,20 +455,33 @@ if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
 if 'user_status' not in st.session_state: st.session_state['user_status'] = "expired"
 if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 
+# ==========================================
+# --- SECURE PAYMENT VERIFICATION ---
+# ==========================================
 query_params = st.query_params
-if "payment_success" in query_params and st.session_state['logged_in']:
-    try:
-        days_purchased = query_params.get("days", 30)
-        new_date = add_subscription_days(st.session_state['user_email'], days_purchased)
-        st.session_state['user_status'] = 'active'
-        st.session_state['expiry_date'] = new_date
-        st.toast(f"VIP ACTIVATED until {new_date}", icon="🚀")
-        st.query_params.clear()
-        time.sleep(2)
-        st.rerun()
-    except Exception as e:
-        st.error(f"Activation Error: {e}")
 
+# Ελέγχουμε αν υπάρχει το 'success' ΚΑΙ αν το 'token' ταιριάζει με το μυστικό μας
+if "payment_success" in query_params and st.session_state['logged_in']:
+    token_received = query_params.get("token", "")
+    secret_check = st.secrets["payment"]["secret_token"]
+    
+    if token_received == secret_check:
+        try:
+            days_purchased = query_params.get("days", 30)
+            new_date = add_subscription_days(st.session_state['user_email'], days_purchased)
+            st.session_state['user_status'] = 'active'
+            st.session_state['expiry_date'] = new_date
+            st.toast(f"VIP ACTIVATED until {new_date}", icon="🚀")
+            # Καθαρίζουμε το URL για να μην φαίνεται το token
+            st.query_params.clear()
+            time.sleep(2)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Activation Error: {e}")
+    else:
+        # Αν κάποιος προσπαθήσει να κλέψει χωρίς το token
+        st.error("⛔ SECURITY ALERT: Unauthorized payment attempt detected.")
+        st.query_params.clear()
 # ==========================================
 # --- 5. VIEW: LANDING PAGE ---
 # ==========================================
