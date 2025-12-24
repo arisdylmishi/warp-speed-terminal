@@ -1,5 +1,8 @@
 import streamlit as st
-from st_supabase_connection import SupabaseConnection
+# --- ΔΙΟΡΘΩΣΗ: Αφαίρεση της προβληματικής βιβλιοθήκης ---
+# from st_supabase_connection import SupabaseConnection 
+from supabase import create_client, Client # <--- ΝΕΑ ΒΙΒΛΙΟΘΗΚΗ
+
 import hashlib
 import yfinance as yf
 import pandas as pd
@@ -379,9 +382,19 @@ def get_spy_data():
     except: return None
 
 # ==========================================
-# --- 3. CLOUD DATABASE (SUPABASE) ---
+# --- 3. CLOUD DATABASE (SUPABASE - DIRECT FIX) ---
 # ==========================================
-st_conn = st.connection("supabase", type=SupabaseConnection)
+
+# --- ΔΙΟΡΘΩΣΗ: Απευθείας σύνδεση με supabase-py ---
+@st.cache_resource
+def init_connection():
+    # Διαβάζει τα secrets από το [supabase]
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = init_connection()
+# --------------------------------------------------
 
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -395,7 +408,8 @@ def add_user(email, password):
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
-        st_conn.table("users").insert({
+        # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
+        supabase.table("users").insert({
             "email": email, 
             "password": hashed_pw, 
             "status": 'expired', 
@@ -407,7 +421,8 @@ def add_user(email, password):
 
 def login_user_db(email, password):
     hashed_pw = make_hashes(password)
-    res = st_conn.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
+    # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
+    res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
     if res.data:
         # Μετατροπή σε format λίστας για συμβατότητα με τον υπόλοιπο κώδικα
         user_list = [list(res.data[0].values())]
@@ -416,7 +431,8 @@ def login_user_db(email, password):
 
 def add_subscription_days(email, days_to_add):
     new_expiry = (datetime.now() + timedelta(days=int(days_to_add))).strftime("%Y-%m-%d")
-    st_conn.table("users").update({"status": "active", "expiry_date": new_expiry}).eq("email", email).execute()
+    # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
+    supabase.table("users").update({"status": "active", "expiry_date": new_expiry}).eq("email", email).execute()
     return new_expiry
 
 def check_subscription_validity(email, current_expiry_str):
@@ -425,7 +441,8 @@ def check_subscription_validity(email, current_expiry_str):
     try:
         expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
         if datetime.now() > expiry_date + timedelta(days=1):
-            st_conn.table("users").update({"status": "expired"}).eq("email", email).execute()
+            # ΔΙΟΡΘΩΣΗ: Χρήση του 'supabase' object
+            supabase.table("users").update({"status": "expired"}).eq("email", email).execute()
             return False 
         return True
     except: return False
