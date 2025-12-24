@@ -145,6 +145,19 @@ st.markdown("""
             font-size: 0.9em;
             border: 1px solid rgba(0, 255, 65, 0.2);
         }
+        
+        .coming-soon {
+            background-color: var(--primary);
+            color: black;
+            padding: 4px 10px;
+            font-weight: 800;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            vertical-align: middle;
+            margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
         /* TABS */
         .stTabs [data-baseweb="tab-list"] {
@@ -201,7 +214,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (UNCHANGED) ---
+# --- 2. ADVANCED LOGIC (AI, MATH & NEWS) ---
 # ==========================================
 
 STRIPE_LINKS = {
@@ -425,10 +438,13 @@ def get_spy_data():
 # ==========================================
 @st.cache_resource
 def init_connection():
-    # Διαβάζει τα secrets από το [supabase]
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    # SECURE CONNECTION: USES STREAMLIT SECRETS ONLY
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        return create_client(url, key)
+    except Exception:
+        return None
 
 supabase = init_connection()
 
@@ -440,6 +456,7 @@ def check_hashes(password, hashed_text):
     return False
 
 def add_user(email, password):
+    if not supabase: return False
     hashed_pw = make_hashes(password)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
@@ -455,13 +472,17 @@ def add_user(email, password):
     except: return False
 
 def login_user_db(email, password):
+    if not supabase: return []
     hashed_pw = make_hashes(password)
-    res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
-    if res.data:
-        return [list(res.data[0].values())]
+    try:
+        res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
+        if res.data:
+            return [list(res.data[0].values())]
+    except: pass
     return []
 
 def add_subscription_days(email, days_to_add):
+    if not supabase: return None
     new_expiry = (datetime.now() + timedelta(days=int(days_to_add))).strftime("%Y-%m-%d")
     supabase.table("users").update({"status": "active", "expiry_date": new_expiry}).eq("email", email).execute()
     return new_expiry
@@ -469,6 +490,7 @@ def add_subscription_days(email, days_to_add):
 def check_subscription_validity(email, current_expiry_str):
     if email == "admin": return True
     if not current_expiry_str: return False
+    if not supabase: return False
     try:
         expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
         if datetime.now() > expiry_date + timedelta(days=1):
@@ -619,6 +641,20 @@ if not st.session_state['logged_in']:
         try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
 
+    # --- RE-ADDED: APP SNEAK PEEK SECTION ---
+    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        try: st.image("dashboard.png", caption="App Dashboard", use_container_width=True) 
+        except: st.info("[App Dashboard Preview]")
+    with c2:
+        try: st.image("analysis.png", caption="App Analysis", use_container_width=True) 
+        except: st.info("[App Analysis Preview]")
+    with c3:
+        try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
+        except: st.info("[App Risk Preview]")
+    # ----------------------------------------
+
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: support@warpspeedterminal.com</p>", unsafe_allow_html=True)
 
 # ==========================================
@@ -687,7 +723,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v13.0 (Cyberpunk)")
+        st.caption("v14.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -1034,8 +1070,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("Beta (Volatility)", i.get('beta', '-'))
             c2.metric("Short Ratio", i.get('shortRatio', '-'))
             st.caption("Institutional Holders:")
-            try: st.dataframe(yf.Ticker(sel_t).institutional_holders.head())
-            except: st.write("Data hidden")
+            
+            # FIX: Improved Institutional Holders Fetching
+            try: 
+                holders = yf.Ticker(sel_t).institutional_holders
+                if holders is not None and not holders.empty:
+                    st.dataframe(holders.head())
+                else:
+                    st.info("No institutional data available for this asset.")
+            except: 
+                st.write("Data currently unavailable.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
