@@ -18,145 +18,190 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # ==========================================
-# --- 1. CONFIGURATION & STYLE ---
+# --- 1. CONFIGURATION & CYBERPUNK THEME ---
 # ==========================================
 st.set_page_config(
     page_title="Warp Speed Terminal", 
     layout="wide", 
-    page_icon="🚀",
+    page_icon="⚡",
     initial_sidebar_state="collapsed"
 )
 
-# Bloomberg-style Dark Mode with Neon Accents
+# --- THEME INJECTION: MATCHING INDEX.HTML ---
 st.markdown("""
     <style>
-        .stApp { background-color: #000000; color: #e0e0e0; }
-        
-        /* Typography */
-        h1, h2, h3, h4 { font-family: 'Roboto', sans-serif; font-weight: 700; color: #ff9900 !important; letter-spacing: 1px; }
-        
-        /* Metrics */
-        div[data-testid="stMetricValue"] {
-            font-size: 1.2rem;
-            color: #00ffea; 
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            text-shadow: 0px 0px 5px rgba(0, 255, 234, 0.5);
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500;700&display=swap');
+
+        /* GLOBAL VARS FROM HTML */
+        :root {
+            --bg: #050505;
+            --primary: #00ff41; /* Neon Green */
+            --secondary: #00d4ff; /* Cyan */
+            --text: #e0e0e0;
+            --border: rgba(0, 255, 65, 0.4);
+            --surface: #0a0a0a;
         }
-        div[data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
-        
-        /* Buttons */
-        .stButton>button {
-            width: 100%;
-            border-radius: 0px;
-            font-weight: bold;
-            height: 3em;
-            text-transform: uppercase;
-            border: 1px solid #333;
-            background-color: #1a1a1a;
-            color: #ff9900;
-            transition: all 0.3s;
+
+        /* MAIN APP CONTAINER */
+        .stApp {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Fira Code', monospace;
         }
-        .stButton>button:hover {
-            background-color: #ff9900;
-            color: #000;
-            border-color: #ff9900;
-            box-shadow: 0px 0px 10px #ff9900;
+
+        /* SCANLINE OVERLAY (The TV Effect) */
+        .stApp::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+            z-index: 9999;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
         }
-        
-        /* Custom Boxes */
-        .ai-box {
-            background-color: #0f1216;
-            padding: 15px;
-            border-left: 4px solid #00ffea;
-            margin-bottom: 10px;
-            font-family: 'Courier New', monospace;
-            color: #eee;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        
-        .reason-box {
-            background-color: #1a1a1a; 
-            padding: 10px; 
-            border-left: 3px solid #ff9900; 
-            margin-bottom: 5px;
-            font-size: 0.9em;
-        }
-        
-        .coming-soon {
-            background-color: #ff9900;
-            color: black;
-            padding: 4px 10px;
-            font-weight: 800;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            vertical-align: middle;
-            margin-left: 10px;
-            text-transform: uppercase;
+
+        /* TYPOGRAPHY */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Fira Code', monospace !important;
+            color: var(--primary) !important;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
             letter-spacing: 1px;
         }
         
-        /* Links Styling */
-        a { color: #00ccff !important; text-decoration: none; font-weight: bold; font-family: 'Courier New'; }
-        a:hover { text-decoration: underline; color: #ff9900 !important; }
-        
-        /* PAYWALL STYLING */
-        .paywall-header {
-            text-align: center;
-            border: 1px solid #ff4444;
-            background-color: #1a0000;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-radius: 4px;
+        p, div, span, label {
+            font-family: 'Fira Code', monospace !important;
         }
-        .paywall-title {
-            color: #ff4444;
-            font-family: 'Courier New', monospace;
-            font-size: 1.5rem;
-            font-weight: bold;
+
+        /* INPUT FIELDS (Terminal Style) */
+        .stTextInput input {
+            background-color: #000 !important;
+            color: var(--primary) !important;
+            border: 1px solid var(--primary) !important;
+            border-radius: 0px !important;
+            font-family: 'Fira Code', monospace !important;
+        }
+        .stTextInput input:focus {
+            box-shadow: 0 0 10px var(--primary) !important;
+        }
+
+        /* BUTTONS (Pulse Effect) */
+        .stButton>button {
+            width: 100%;
+            border-radius: 0px;
+            font-weight: 700;
+            height: 3em;
+            text-transform: uppercase;
+            border: 1px solid var(--primary);
+            background-color: rgba(0, 255, 65, 0.1);
+            color: var(--primary);
+            transition: all 0.3s;
+            font-family: 'Fira Code', monospace !important;
             letter-spacing: 2px;
         }
-        .paywall-sub {
-            color: #aaa;
-            font-size: 1rem;
-            margin-top: 10px;
+        .stButton>button:hover {
+            background-color: var(--primary);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary);
         }
+
+        /* METRICS */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.8rem !important;
+            color: var(--secondary) !important; 
+            font-family: 'Fira Code', monospace !important;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--secondary);
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #888 !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* EXPANDERS & BOXES */
+        .streamlit-expanderHeader {
+            background-color: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--primary) !important;
+            border-radius: 0px !important;
+        }
+        
+        /* CUSTOM ALERTS */
+        .ai-box {
+            background-color: rgba(0, 212, 255, 0.05);
+            padding: 15px;
+            border-left: 4px solid var(--secondary);
+            margin-bottom: 10px;
+            font-family: 'Fira Code', monospace;
+            color: #eee;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .reason-box {
+            background-color: rgba(0, 255, 65, 0.05); 
+            padding: 10px; 
+            border-left: 3px solid var(--primary); 
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            border: 1px solid rgba(0, 255, 65, 0.2);
+        }
+
+        /* TABS */
+        .stTabs [data-baseweb="tab-list"] {
+            border-bottom: 1px solid var(--border);
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #888;
+            font-family: 'Fira Code', monospace;
+        }
+        .stTabs [aria-selected="true"] {
+            color: var(--primary) !important;
+            border-bottom-color: var(--primary) !important;
+        }
+
+        /* DATAFRAME */
+        [data-testid="stDataFrame"] {
+            border: 1px solid var(--border);
+        }
+
+        /* PAYWALL CARDS MATCHING HTML FEATURES */
         .plan-card {
-            border: 1px solid #333;
-            background-color: #0f1216;
+            border: 1px solid var(--primary);
+            background-color: rgba(0,0,0,0.8);
             padding: 20px;
             text-align: center;
-            border-radius: 4px;
             height: 100%;
+            transition: 0.3s;
+        }
+        .plan-card:hover {
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            transform: translateY(-5px);
         }
         .plan-title {
-            color: #fff;
+            color: var(--primary);
             font-size: 1.2rem;
             font-weight: bold;
             margin-bottom: 10px;
             text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
         }
         .plan-price {
             font-size: 2rem;
-            color: #00ffea;
-            font-family: 'Courier New', monospace;
+            color: var(--secondary);
+            font-family: 'Fira Code', monospace;
             font-weight: bold;
-        }
-        .plan-save {
-            color: #00ff00;
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 15px;
+            text-shadow: 0 0 10px var(--secondary);
         }
         .best-value {
-            border: 1px solid #ff9900;
-            box-shadow: 0 0 15px rgba(255, 153, 0, 0.2);
+            border: 1px solid var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC (AI, MATH & NEWS) ---
+# --- 2. ADVANCED LOGIC (UNCHANGED) ---
 # ==========================================
 
 STRIPE_LINKS = {
@@ -167,7 +212,6 @@ STRIPE_LINKS = {
 }
 
 def get_google_news(ticker):
-    """Fetches real news from Google RSS to bypass Yahoo blocks"""
     try:
         url = f"https://news.google.com/rss/search?q={ticker}+stock+news&hl=en-US&gl=US&ceid=US:en"
         response = requests.get(url, timeout=5)
@@ -183,7 +227,6 @@ def get_google_news(ticker):
     except: return []
 
 def calculate_monte_carlo(df, days=30, simulations=1000):
-    """Generates Probabilistic Price Cones"""
     try:
         last_price = df['Close'].iloc[-1]
         returns = df['Close'].pct_change().dropna()
@@ -227,7 +270,6 @@ def calculate_smart_levels(df):
     return high_price, low_price, fibs
 
 def generate_ai_summary(news_items):
-    """Generates a dynamic AI summary from Google News"""
     text_corpus = ""
     valid_news = []
     
@@ -477,20 +519,18 @@ if "payment_success" in query_params and st.session_state['logged_in']:
 # ==========================================
 if not st.session_state['logged_in']:
     st.markdown("""
-        <div style='text-align: center; padding: 50px 20px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,255,204,0.05) 100%); border-bottom: 1px solid #333;'>
-            <h1 style='color: #00FFCC; font-size: 60px; margin-bottom: 10px;'>WARP SPEED TERMINAL</h1>
-            <p style='font-size: 24px; color: #aaa;'>Institutional Grade Market Intelligence.</p>
+        <div style='text-align: center; padding: 50px 20px;'>
+            <h1 style='color: #00FF41; font-size: 60px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0,255,65,0.8);'>WARP SPEED TERMINAL</h1>
+            <p style='font-size: 24px; color: #00d4ff; letter-spacing: 2px;'>UNLEASH THE DATA</p>
         </div>
     """, unsafe_allow_html=True)
     
-    # --- FIX: Show message if user returned from payment but session was lost ---
     if "payment_success" in st.query_params:
         st.success("✅ PAYMENT RECEIVED! Please Log In to complete activation.", icon="🔓")
-    # -----------------------------------------------------------------------
 
     c1, c2 = st.columns([1, 1], gap="large")
     with c1:
-        st.markdown("### ⚡ UNLEASH THE DATA")
+        st.markdown("### ⚡ SYSTEM ACCESS")
         st.info("Professional analysis synthesizing Technicals, Fundamentals, and AI.")
         
         tab_login, tab_signup = st.tabs(["LOG IN", "REGISTER"])
@@ -565,8 +605,7 @@ if not st.session_state['logged_in']:
         * **CEO Report:** One-click generation of a full text briefing for sharing.
         """)
     
-    # --- 1. NEW: LIVE WEB PLATFORM PREVIEW ---
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
+    st.markdown("<br><h2 style='text-align: center;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
     wc1, wc2 = st.columns(2)
     with wc1:
         try: st.image("preview_dashboard.jpg", caption="Matrix Scanner (Live)", use_container_width=True)
@@ -580,19 +619,6 @@ if not st.session_state['logged_in']:
         try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
 
-    # --- 2. OLD: APP SNEAK PEEK ---
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        try: st.image("dashboard.png", caption="App Dashboard", use_container_width=True) 
-        except: st.info("[App Dashboard Preview]")
-    with c2:
-        try: st.image("analysis.png", caption="App Analysis", use_container_width=True) 
-        except: st.info("[App Analysis Preview]")
-    with c3:
-        try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
-        except: st.info("[App Risk Preview]")
-            
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: support@warpspeedterminal.com</p>", unsafe_allow_html=True)
 
 # ==========================================
@@ -614,7 +640,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         st.markdown("""
             <div class="plan-card">
                 <div class="plan-title">Standard Access</div>
-                <div class="plan-price">€25<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-price">€25<span style="font-size: 1rem; color: #888;">/mo</span></div>
             </div>
         """, unsafe_allow_html=True)
         st.link_button("ACTIVATE MONTHLY", STRIPE_LINKS['1M'], use_container_width=True)
@@ -623,7 +649,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         st.markdown("""
             <div class="plan-card">
                 <div class="plan-title">Quarterly</div>
-                <div class="plan-price">€23<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-price">€23<span style="font-size: 1rem; color: #888;">/mo</span></div>
                 <div class="plan-save">SAVE €24/YR</div>
             </div>
         """, unsafe_allow_html=True)
@@ -633,7 +659,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         st.markdown("""
             <div class="plan-card">
                 <div class="plan-title">Semi-Annual</div>
-                <div class="plan-price">€20<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
+                <div class="plan-price">€20<span style="font-size: 1rem; color: #888;">/mo</span></div>
                 <div class="plan-save">SAVE €60/YR</div>
             </div>
         """, unsafe_allow_html=True)
@@ -642,9 +668,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
     with c4:
         st.markdown("""
             <div class="plan-card best-value">
-                <div class="plan-title" style="color: #ff9900;">🏆 INSTITUTIONAL TIER</div>
-                <div class="plan-price" style="color: #ff9900;">€15<span style="font-size: 1rem; color: #aaa;">/mo</span></div>
-                <div class="plan-save" style="color: #ff9900;">SAVE €120/YR (40% OFF)</div>
+                <div class="plan-title" style="color: #00d4ff;">🏆 INSTITUTIONAL TIER</div>
+                <div class="plan-price" style="color: #00d4ff;">€15<span style="font-size: 1rem; color: #888;">/mo</span></div>
+                <div class="plan-save" style="color: #00ff41;">SAVE €120/YR (40% OFF)</div>
             </div>
         """, unsafe_allow_html=True)
         st.link_button("ACTIVATE YEARLY ACCESS", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
@@ -661,7 +687,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v11.0 (Ultimate)")
+        st.caption("v13.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -700,13 +726,13 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     # --- SCANNER ENGINE ---
     def scan_market_safe(tickers):
         results = []
-        progress_text = "Scanning assets..."
+        progress_text = "SCANNING NETWORK..."
         my_bar = st.progress(0, text=progress_text)
         total = len(tickers)
         
         for idx, t in enumerate(tickers):
             try:
-                my_bar.progress(int((idx + 1) / total * 100), text=f"Scanning {t}...")
+                my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
                 
                 # Fetch Data
                 stock = yf.Ticker(t)
@@ -830,7 +856,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         } for d in st.session_state['data']])
         
         def highlight_verdict(val):
-            color = '#00FFCC' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
+            color = '#00FF41' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
             return f'color: {color}; font-weight: bold'
             
         st.dataframe(df_view.style.map(highlight_verdict, subset=['VERDICT']), use_container_width=True, hide_index=True)
@@ -943,7 +969,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     fig.add_hline(y=val, line_dash="dash", line_color="gray", annotation_text=name, opacity=0.5)
 
             # MACD
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FFCC'), name='MACD'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FF41'), name='MACD'), row=2, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
             fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
 
@@ -999,7 +1025,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
                     # Make link clickable and blue
-                    st.markdown(f"• <a href='{t_link}' target='_blank' style='color: #00ccff; text-decoration: none;'>{t_title}</a>", unsafe_allow_html=True)
+                    st.markdown(f"• <a href='{t_link}' target='_blank' style='color: #00d4ff; text-decoration: none;'>{t_title}</a>", unsafe_allow_html=True)
             else: st.write("No news found.")
             
         with t4: 
