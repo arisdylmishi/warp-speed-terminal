@@ -32,7 +32,7 @@ st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500;700&display=swap');
 
-        /* GLOBAL VARS FROM HTML */
+        /* GLOBAL VARS */
         :root {
             --bg: #050505;
             --primary: #00ff41; /* Neon Green */
@@ -49,6 +49,11 @@ st.markdown("""
             font-family: 'Fira Code', monospace;
         }
 
+        /* FIX: Apply Font ONLY to text, NOT icons to prevent "keyboard arrow" glitch */
+        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stDataFrame {
+            font-family: 'Fira Code', monospace !important;
+        }
+
         /* SCANLINE OVERLAY (The TV Effect) */
         .stApp::before {
             content: " ";
@@ -61,16 +66,11 @@ st.markdown("""
             pointer-events: none;
         }
 
-        /* TYPOGRAPHY */
+        /* TYPOGRAPHY COLORS */
         h1, h2, h3, h4, h5, h6 {
-            font-family: 'Fira Code', monospace !important;
             color: var(--primary) !important;
             text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
             letter-spacing: 1px;
-        }
-        
-        p, div, span, label {
-            font-family: 'Fira Code', monospace !important;
         }
 
         /* INPUT FIELDS (Terminal Style) */
@@ -79,7 +79,6 @@ st.markdown("""
             color: var(--primary) !important;
             border: 1px solid var(--primary) !important;
             border-radius: 0px !important;
-            font-family: 'Fira Code', monospace !important;
         }
         .stTextInput input:focus {
             box-shadow: 0 0 10px var(--primary) !important;
@@ -96,7 +95,6 @@ st.markdown("""
             background-color: rgba(0, 255, 65, 0.1);
             color: var(--primary);
             transition: all 0.3s;
-            font-family: 'Fira Code', monospace !important;
             letter-spacing: 2px;
         }
         .stButton>button:hover {
@@ -109,7 +107,6 @@ st.markdown("""
         div[data-testid="stMetricValue"] {
             font-size: 1.8rem !important;
             color: var(--secondary) !important; 
-            font-family: 'Fira Code', monospace !important;
             font-weight: bold;
             text-shadow: 0 0 10px var(--secondary);
         }
@@ -132,7 +129,6 @@ st.markdown("""
             padding: 15px;
             border-left: 4px solid var(--secondary);
             margin-bottom: 10px;
-            font-family: 'Fira Code', monospace;
             color: #eee;
             border: 1px solid rgba(0, 212, 255, 0.2);
         }
@@ -165,24 +161,25 @@ st.markdown("""
         }
         .stTabs [data-baseweb="tab"] {
             color: #888;
-            font-family: 'Fira Code', monospace;
         }
         .stTabs [aria-selected="true"] {
             color: var(--primary) !important;
             border-bottom-color: var(--primary) !important;
         }
 
-        /* DATAFRAME & TABLES FIX */
+        /* --- TABLE FIXES (Institutional Holders) --- */
         [data-testid="stDataFrame"] {
             border: 1px solid var(--border);
             background-color: #000 !important;
         }
-        [data-testid="stDataFrame"] * {
-            color: var(--text) !important; /* Ensure text is visible */
-        }
-        /* Force table header/cells to be visible against black */
-        div[data-testid="stTable"] {
+        /* Force table header/cells to be visible */
+        [data-testid="stDataFrame"] div, [data-testid="stDataFrame"] span {
             color: var(--text) !important;
+        }
+        /* Column headers */
+        [data-testid="stDataFrame"] th {
+            background-color: #111 !important;
+            color: var(--primary) !important;
         }
 
         /* PAYWALL CARDS MATCHING HTML FEATURES */
@@ -731,7 +728,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v15.0 (Cyberpunk)")
+        st.caption("v16.0 (Cyberpunk)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\support@warpspeedterminal.com")
@@ -1081,13 +1078,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            # IMPROVED HOLDINGS FETCHING
+            # --- IMPROVED HOLDINGS FETCHING ---
             try: 
                 ticker_obj = yf.Ticker(sel_t)
-                
                 # 1. Try Institutional Holders
                 holders = ticker_obj.institutional_holders
-                
                 # 2. Fallback to Major Holders if empty
                 if holders is None or holders.empty:
                     holders = ticker_obj.major_holders
@@ -1097,9 +1092,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     # Convert to string to prevent formatting issues on dark mode
                     st.dataframe(holders.astype(str), use_container_width=True)
                 else:
-                    st.info("No institutional data available for this asset.")
+                    st.info("No institutional data available for this asset via free API.")
             except Exception as e: 
-                st.write("Data currently unavailable.")
+                st.warning("Data currently unavailable.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
