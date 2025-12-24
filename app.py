@@ -583,7 +583,7 @@ if not st.session_state['logged_in']:
         try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
         except: st.info("[App Risk Preview]")
             
-    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: support@warpspeedterminal.com</p>", unsafe_allow_html=True)
 
 # ==========================================
 # --- 6. VIEW: PAYWALL ---
@@ -639,7 +639,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
         """, unsafe_allow_html=True)
         st.link_button("ACTIVATE YEARLY ACCESS", STRIPE_LINKS['1Y'], type="primary", use_container_width=True)
     
-    st.markdown("<br><p style='text-align: center; color: #555;'>Support: warpspeedterminal@gmail.com</p>", unsafe_allow_html=True)
+    st.markdown("<br><p style='text-align: center; color: #555;'>Support: support@warpspeedterminal.com</p>", unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
@@ -654,7 +654,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         st.caption("v11.0 (Ultimate)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
-        st.markdown("📧 **Support:**\nwarpspeedterminal@gmail.com")
+        st.markdown("📧 **Support:**\support@warpspeedterminal.com")
 
     # --- MACRO BAR ---
     with st.container():
