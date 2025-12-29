@@ -777,7 +777,45 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
     st.divider()
 
-    # --- SCANNER ENGINE ---
+    # --- NEW CACHED DATA FETCHER (Prevents Yahoo Blocks) ---
+    @st.cache_data(ttl=900, show_spinner=False)
+    def fetch_ticker_data(ticker):
+        """
+        Fetches history and info with caching to prevent IP bans.
+        Retries automatically if data is missing.
+        """
+        try:
+            # Create a session with browser headers to avoid bot detection
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+            })
+
+            stock = yf.Ticker(ticker, session=session)
+            
+            # Attempt 1: History
+            df = stock.history(period="1y")
+            
+            # Attempt 2: Fallback to download if empty
+            if df.empty or len(df) < 5:
+                df = yf.download(ticker, period="1y", progress=False, ignore_tz=True)
+            
+            # If still empty, return None
+            if df.empty:
+                return None, None
+
+            # Fetch Info (safely)
+            try:
+                info = stock.info
+            except:
+                info = {} # Fallback if info fails but price works
+
+            return df, info
+
+        except Exception:
+            return None, None
+
+    # --- UPDATED SCANNER ENGINE ---
     def scan_market_safe(tickers):
         results = []
         progress_text = "SCANNING NETWORK..."
@@ -788,13 +826,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             try:
                 my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
                 
-                # Fetch Data
-                stock = yf.Ticker(t)
-                df = stock.history(period="1y")
+                # --- CHANGED: Use the cached function instead of raw yf calls ---
+                df, info = fetch_ticker_data(t)
                 
-                if df.empty or len(df) < 50: 
-                    df = yf.download(t, period="1y", progress=False, auto_adjust=True)
-                    if df.empty or len(df) < 50: continue
+                if df is None or df.empty:
+                    continue
                 
                 # Timezone cleanup
                 if df.index.tz is not None: df.index = df.index.tz_localize(None)
@@ -804,7 +840,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 curr = df['Close'].iloc[-1]
                 prev = df['Close'].iloc[-2]
                 chg = ((curr - prev)/prev)*100
-                rsi = df['RSI'].iloc[-1]
+                rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns else 50
                 
                 # Verdict
                 ma50 = df['Close'].rolling(50).mean().iloc[-1]
@@ -838,7 +874,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
                 
                 # Info
-                info = stock.info
                 pe = info.get('trailingPE', None)
                 bubble = "NO"
                 if pe and pe > 35: 
@@ -848,7 +883,11 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 
                 peg = info.get('pegRatio', 'N/A')
                 target_price = info.get('targetMeanPrice', 'N/A')
-                consensus = info.get('recommendationKey', 'N/A').upper().replace('_', ' ')
+                rec_key = info.get('recommendationKey', 'N/A')
+                if isinstance(rec_key, str):
+                    consensus = rec_key.upper().replace('_', ' ')
+                else:
+                    consensus = "N/A"
                 
                 # NEWS HANDLING (GOOGLE NEWS INTEGRATION)
                 news_items = get_google_news(t)
@@ -861,7 +900,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     "TargetPrice": target_price, "Consensus": consensus,
                     "AISummary": ai_summary
                 })
-            except: continue
+            except Exception:
+                continue
             
         my_bar.empty()
         return results
@@ -877,7 +917,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         * **⚡ RVOL (Relative Volume):** How much volume is trading compared to normal.
             * **>1.5:** High Institutional Activity (Big players are moving).
         * **🔮 Oracle Ghost (Magenta Line):** A predictive line based on historical pattern matching.
-        * **☁️ Event Horizon (Green/Red Cloud):** Monte Carlo simulation showing the probable price range for the next 30 days.
+        * **☁️ Event Horizon (Green/Red Cloud):** Monte Carlo simulation showing the probable price range for the next 30 days based on volatility.
         * **🚨 Bubble Alert:** Triggered when P/E > 35 and Price is extended far above moving averages.
         """)
 
