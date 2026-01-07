@@ -466,7 +466,6 @@ def get_spy_data():
 # --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
 
-# --- PROVIDER 3: FINVIZ SCRAPER (The "Nuclear Option") ---
 def fetch_finviz_data(ticker):
     """Scrapes Finviz table when APIs fail."""
     try:
@@ -508,7 +507,7 @@ def fetch_finviz_data(ticker):
         return {}
 
 @st.cache_data(ttl=900, show_spinner=False)
-def fetch_ticker_data(ticker):
+def fetch_ticker_data(ticker, period="1y"):
     df = None
     info = {}
     
@@ -516,7 +515,12 @@ def fetch_ticker_data(ticker):
     # 1. PRICE HISTORY (YFinance -> Finnhub)
     # ----------------------------------------------
     try:
-        df = yf.download(ticker, period="1y", progress=False)
+        # Map period string to valid YF period
+        valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+        p = period.lower()
+        if p not in valid_periods: p = "1y"
+        
+        df = yf.download(ticker, period=p, progress=False)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         if df.index.tz is not None:
@@ -551,7 +555,7 @@ def fetch_ticker_data(ticker):
     # Provider 1: YahooQuery (Best API)
     try:
         yq = YQTicker(ticker)
-        modules = 'summaryDetail defaultKeyStatistics financialData price'
+        modules = 'summaryDetail defaultKeyStatistics financialData price assetProfile'
         data = yq.get_modules(modules)
         d = data.get(ticker, {})
         if isinstance(d, dict) and 'summaryDetail' in d:
@@ -562,12 +566,14 @@ def fetch_ticker_data(ticker):
                 'beta': d.get('summaryDetail', {}).get('beta'),
                 'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
                 'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
-                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'N/A')
+                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'N/A'),
+                'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'No description available.'),
+                'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
+                'industry': d.get('assetProfile', {}).get('industry', 'N/A')
             }
     except: pass
 
     # Provider 2: Finviz (If YahooQuery missed keys)
-    # Only run if P/E is missing to save time
     if not info.get('trailingPE'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
@@ -591,7 +597,7 @@ def fetch_ticker_data(ticker):
 
     return df, info
 
-def scan_market_safe(tickers):
+def scan_market_safe(tickers, period="1y"):
     results = []
     progress_text = "SCANNING NETWORK..."
     my_bar = st.progress(0, text=progress_text)
@@ -601,7 +607,7 @@ def scan_market_safe(tickers):
         try:
             my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
             
-            df, info = fetch_ticker_data(t)
+            df, info = fetch_ticker_data(t, period)
             
             if df is None or df.empty:
                 continue
@@ -1011,14 +1017,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         """)
 
     with st.form("scanner"):
-        c1, c2 = st.columns([3, 1])
+        c1, c2, c3 = st.columns([3, 1, 1])
         with c1: query = st.text_input("ENTER ASSETS", "AAPL TSLA NVDA BTC-USD JPM COIN")
-        with c2: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
+        with c2: period = st.selectbox("TIMEFRAME", ["1y", "1mo", "3mo", "6mo", "2y", "5y"])
+        with c3: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if run_scan:
         ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
         if ticks:
-            st.session_state['data'] = scan_market_safe(ticks)
+            st.session_state['data'] = scan_market_safe(ticks, period)
             if not st.session_state['data']:
                 st.warning("No valid data found. If this persists, the data feed is temporarily blocked.")
         else:
@@ -1149,6 +1156,20 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         with t2: 
             i = target['Info']
+            
+            # --- COMPANY PROFILE SECTION (NEW) ---
+            st.markdown("##### 🏢 COMPANY PROFILE")
+            desc = i.get('longBusinessSummary', 'No description available.')
+            if len(desc) > 400: desc = desc[:400] + "..."
+            st.info(desc)
+            
+            c1, c2 = st.columns(2)
+            c1.metric("Sector", i.get('sector', 'N/A'))
+            c2.metric("Industry", i.get('industry', 'N/A'))
+            
+            st.divider()
+            
+            # --- WALL STREET SECTION ---
             st.markdown("##### 🏦 WALL STREET")
             w1, w2 = st.columns(2)
             w1.metric("Consensus", str(target.get('Consensus', 'N/A')))
