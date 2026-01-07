@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import hashlib
 import yfinance as yf
-import finnhub  # <--- NEW IMPORT
+import finnhub
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -462,94 +462,70 @@ def get_spy_data():
         return spy
     except: return None
 
-# --- ROBUST DATA FETCHER (WITH FALLBACK LOGIC) ---
-@st.cache_data(ttl=900, show_spinner=False)
+# ==============================================================
+# --- DIAGNOSTIC MODE: SHOWS API ERRORS ON SCREEN ---
+# ==============================================================
 def fetch_ticker_data(ticker):
-    """
-    1. Tries yfinance (Free/Unlimited).
-    2. If blocked, falls back to Finnhub (Free/Limit 60/min).
-    3. Returns standard dataframe and info dict.
-    """
+    # 1. VISUAL DEBUGGING ON SCREEN
+    st.info(f"🔍 DIAGNOSTIC FOR: {ticker}")
     
-    # --- PHASE 1: TRY YFINANCE ---
+    # 2. CHECK SECRETS
+    finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+    if not finnhub_key:
+        st.error("❌ CRITICAL: [finnhub] section missing in secrets.")
+    elif "PASTE_YOUR" in finnhub_key:
+        st.error("❌ CRITICAL: You still have the placeholder text in secrets!")
+    else:
+        st.success("✅ Secrets Loaded (Key looks valid)")
+
+    # 3. TRY YFINANCE
     try:
         session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
-        })
-
+        session.headers.update({'User-Agent': 'Mozilla/5.0'})
         stock = yf.Ticker(ticker, session=session)
         df = stock.history(period="1y")
         
-        # If yf returns empty, it might be blocked. Raise error to trigger fallback.
-        if df.empty or len(df) < 5:
-            # Attempt direct download before giving up
-            df = yf.download(ticker, period="1y", progress=False)
-        
         if df.empty:
-            raise ValueError("YF Empty Data")
-
-        # Cleanup YF Data
-        if isinstance(df.columns, pd.MultiIndex):
-            try: df.columns = df.columns.get_level_values(0)
-            except: pass
-        if df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-
-        info = stock.info
-        
-        # If we got here, YF worked.
-        return df, info
+            st.warning(f"⚠️ yfinance returned 0 rows for {ticker} (BLOCKED)")
+        else:
+            st.success(f"✅ yfinance worked! ({len(df)} rows)")
+            return df, stock.info
 
     except Exception as e:
-        # --- PHASE 2: FALLBACK TO FINNHUB ---
-        # Note: Set your key in .streamlit/secrets.toml or replace here
-        try:
-            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "YOUR_FINNHUB_KEY") 
-            finnhub_client = finnhub.Client(api_key=finnhub_key)
-            
-            # 1. Get Candles (History)
-            # Calculate timestamps for "1 year ago" to "now"
-            end = int(time.time())
-            start = end - (365 * 24 * 60 * 60)
-            
-            res = finnhub_client.stock_candles(ticker, 'D', start, end)
-            
-            if res['s'] != 'ok':
-                return None, None
-                
-            # Convert Finnhub JSON to Pandas DataFrame (Matching YF format)
-            df = pd.DataFrame({
-                'Open': res['o'],
-                'High': res['h'],
-                'Low': res['l'],
-                'Close': res['c'],
-                'Volume': res['v']
-            })
-            # Convert Unix timestamp to DateTime
-            df.index = pd.to_datetime(res['t'], unit='s')
-            
-            # 2. Get Info (Profile)
-            profile = finnhub_client.company_profile2(symbol=ticker)
-            metrics = finnhub_client.company_basic_financials(symbol=ticker, metric='all')
-            
-            # Map Finnhub data to the keys your app expects from YF
-            info = {
-                'marketCap': (profile.get('marketCapitalization', 0) * 1000000), # Finnhub is in Millions
-                'trailingPE': metrics.get('metric', {}).get('pf'), # Price/Earnings
-                'pegRatio': metrics.get('metric', {}).get('peg'),
-                'dividendYield': metrics.get('metric', {}).get('dividendYieldIndicatedAnnual'),
-                'beta': metrics.get('metric', {}).get('beta'),
-                'targetMeanPrice': 0, # Finnhub free doesn't always have this
-                'recommendationKey': 'N/A'
-            }
-            
-            print(f"⚠️ YFinance failed. Used Finnhub for {ticker}.")
-            return df, info
+        st.error(f"⚠️ yfinance crashed: {e}")
 
-        except Exception as fallback_error:
-            print(f"All sources failed for {ticker}: {fallback_error}")
+    # 4. TRY FINNHUB FALLBACK
+    st.write("🔄 Switching to Finnhub...")
+    if not finnhub_key or "PASTE_YOUR" in finnhub_key:
+        return None, None
+
+    try:
+        finnhub_client = finnhub.Client(api_key=finnhub_key)
+        # Fix Crypto Symbols for Finnhub
+        lookup = ticker
+        if "BTC" in ticker: lookup = "BINANCE:BTCUSDT"
+        
+        # Test Call
+        end = int(time.time())
+        start = end - (30 * 24 * 60 * 60) # Just 30 days for test
+        res = finnhub_client.stock_candles(lookup, 'D', start, end)
+        
+        if res.get('s') == 'ok':
+            st.success(f"✅ Finnhub Succeeded for {lookup}!")
+            # Convert to DF
+            df = pd.DataFrame({
+                'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
+                'Close': res['c'], 'Volume': res['v']
+            })
+            df.index = pd.to_datetime(res['t'], unit='s')
+            return df, {}
+        else:
+            st.error(f"❌ Finnhub Failed. Status: {res.get('s')}. (Likely invalid Key or Symbol)")
             return None, None
+
+    except Exception as e:
+        st.error(f"❌ Finnhub Crashed: {e}")
+        return None, None
 
 def scan_market_safe(tickers):
     results = []
