@@ -31,33 +31,201 @@ st.set_page_config(
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500;700&display=swap');
-        :root { --bg: #050505; --primary: #00ff41; --secondary: #00d4ff; --text: #e0e0e0; --border: rgba(0, 255, 65, 0.4); --surface: #0a0a0a; }
-        .stApp { background-color: var(--bg); color: var(--text); font-family: 'Fira Code', monospace; }
-        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable { font-family: 'Fira Code', monospace !important; }
-        .stApp::before { content: " "; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03)); z-index: 9999; background-size: 100% 3px, 3px 100%; pointer-events: none; }
-        h1, h2, h3, h4, h5, h6 { color: var(--primary) !important; text-shadow: 0 0 10px rgba(0, 255, 65, 0.5); letter-spacing: 1px; }
-        .stTextInput input { background-color: #000 !important; color: var(--primary) !important; border: 1px solid var(--primary) !important; border-radius: 0px !important; }
-        .stButton>button { width: 100%; border-radius: 0px; font-weight: 700; height: 3em; text-transform: uppercase; border: 1px solid var(--primary); background-color: rgba(0, 255, 65, 0.1); color: var(--primary); transition: all 0.3s; letter-spacing: 2px; }
-        .stButton>button:hover { background-color: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
-        div[data-testid="stMetricValue"] { font-size: 1.8rem !important; color: var(--secondary) !important; font-weight: bold; text-shadow: 0 0 10px var(--secondary); }
-        div[data-testid="stMetricLabel"] { color: #888 !important; font-size: 0.8rem !important; }
-        .streamlit-expanderHeader { background-color: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--primary) !important; border-radius: 0px !important; }
-        .ai-box { background-color: rgba(0, 212, 255, 0.05); padding: 15px; border-left: 4px solid var(--secondary); margin-bottom: 10px; color: #eee; border: 1px solid rgba(0, 212, 255, 0.2); }
-        .reason-box { background-color: rgba(0, 255, 65, 0.05); padding: 10px; border-left: 3px solid var(--primary); margin-bottom: 5px; font-size: 0.9em; border: 1px solid rgba(0, 255, 65, 0.2); }
-        .coming-soon { background-color: var(--primary); color: black; padding: 4px 10px; font-weight: 800; border-radius: 4px; font-size: 0.7rem; vertical-align: middle; margin-left: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid var(--border); }
-        .stTabs [data-baseweb="tab"] { color: #888; }
-        .stTabs [aria-selected="true"] { color: var(--primary) !important; border-bottom-color: var(--primary) !important; }
-        [data-testid="stDataFrame"] { border: 1px solid var(--border); background-color: #050505 !important; }
-        [data-testid="stDataFrame"] * { color: var(--text) !important; background-color: #050505 !important; }
-        table { color: var(--text) !important; background-color: #050505 !important; border-collapse: collapse !important; width: 100%; font-family: 'Fira Code', monospace !important; }
-        th { background-color: #111 !important; color: var(--primary) !important; border-bottom: 1px solid var(--primary) !important; padding: 10px !important; }
-        td { border-bottom: 1px solid #333 !important; padding: 8px !important; }
-        .plan-card { border: 1px solid var(--primary); background-color: rgba(0,0,0,0.8); padding: 20px; text-align: center; height: 100%; transition: 0.3s; }
-        .plan-card:hover { box-shadow: 0 0 15px rgba(0, 255, 65, 0.3); transform: translateY(-5px); }
-        .plan-title { color: var(--primary); font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-        .plan-price { font-size: 2rem; color: var(--secondary); font-family: 'Fira Code', monospace; font-weight: bold; text-shadow: 0 0 10px var(--secondary); }
-        .best-value { border: 1px solid var(--secondary); box-shadow: 0 0 15px rgba(0, 212, 255, 0.2); }
+
+        /* GLOBAL VARS */
+        :root {
+            --bg: #050505;
+            --primary: #00ff41; /* Neon Green */
+            --secondary: #00d4ff; /* Cyan */
+            --text: #e0e0e0;
+            --border: rgba(0, 255, 65, 0.4);
+            --surface: #0a0a0a;
+        }
+
+        /* MAIN APP CONTAINER */
+        .stApp {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* FONT FIX */
+        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable {
+            font-family: 'Fira Code', monospace !important;
+        }
+
+        /* SCANLINE OVERLAY */
+        .stApp::before {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+            z-index: 9999;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* TYPOGRAPHY */
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--primary) !important;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            letter-spacing: 1px;
+        }
+
+        /* INPUT FIELDS */
+        .stTextInput input {
+            background-color: #000 !important;
+            color: var(--primary) !important;
+            border: 1px solid var(--primary) !important;
+            border-radius: 0px !important;
+        }
+        .stTextInput input:focus {
+            box-shadow: 0 0 10px var(--primary) !important;
+        }
+
+        /* BUTTONS */
+        .stButton>button {
+            width: 100%;
+            border-radius: 0px;
+            font-weight: 700;
+            height: 3em;
+            text-transform: uppercase;
+            border: 1px solid var(--primary);
+            background-color: rgba(0, 255, 65, 0.1);
+            color: var(--primary);
+            transition: all 0.3s;
+            letter-spacing: 2px;
+        }
+        .stButton>button:hover {
+            background-color: var(--primary);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        /* METRICS */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.8rem !important;
+            color: var(--secondary) !important; 
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--secondary);
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #888 !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* EXPANDERS & BOXES */
+        .streamlit-expanderHeader {
+            background-color: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--primary) !important;
+            border-radius: 0px !important;
+        }
+        
+        .ai-box {
+            background-color: rgba(0, 212, 255, 0.05);
+            padding: 15px;
+            border-left: 4px solid var(--secondary);
+            margin-bottom: 10px;
+            color: #eee;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .reason-box {
+            background-color: rgba(0, 255, 65, 0.05); 
+            padding: 10px; 
+            border-left: 3px solid var(--primary); 
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            border: 1px solid rgba(0, 255, 65, 0.2);
+        }
+        
+        .coming-soon {
+            background-color: var(--primary);
+            color: black;
+            padding: 4px 10px;
+            font-weight: 800;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            vertical-align: middle;
+            margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* TABS */
+        .stTabs [data-baseweb="tab-list"] {
+            border-bottom: 1px solid var(--border);
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #888;
+        }
+        .stTabs [aria-selected="true"] {
+            color: var(--primary) !important;
+            border-bottom-color: var(--primary) !important;
+        }
+
+        /* TABLE FIXES */
+        [data-testid="stDataFrame"] {
+            border: 1px solid var(--border);
+            background-color: #050505 !important;
+        }
+        [data-testid="stDataFrame"] * {
+            color: var(--text) !important;
+            background-color: #050505 !important;
+        }
+        table {
+            color: var(--text) !important;
+            background-color: #050505 !important;
+            border-collapse: collapse !important;
+            width: 100%;
+            font-family: 'Fira Code', monospace !important;
+        }
+        th {
+            background-color: #111 !important;
+            color: var(--primary) !important;
+            border-bottom: 1px solid var(--primary) !important;
+            padding: 10px !important;
+        }
+        td {
+            border-bottom: 1px solid #333 !important;
+            padding: 8px !important;
+        }
+
+        /* PAYWALL CARDS */
+        .plan-card {
+            border: 1px solid var(--primary);
+            background-color: rgba(0,0,0,0.8);
+            padding: 20px;
+            text-align: center;
+            height: 100%;
+            transition: 0.3s;
+        }
+        .plan-card:hover {
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            transform: translateY(-5px);
+        }
+        .plan-title {
+            color: var(--primary);
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        .plan-price {
+            font-size: 2rem;
+            color: var(--secondary);
+            font-family: 'Fira Code', monospace;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--secondary);
+        }
+        .best-value {
+            border: 1px solid var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -293,39 +461,35 @@ def get_spy_data():
         return spy
     except: return None
 
-# --- ROBUST DATA FETCHER ---
+# --- ROBUST DATA FETCHER (THIS IS THE FIX) ---
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
     """
-    Tries multiple methods to fetch data to bypass blockages.
+    Fetches history and info. Flattens complex tables to stop 'No Valid Data' errors.
     """
-    # Create session with headers
     session = requests.Session()
     session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'})
 
     try:
-        # METHOD 1: yf.download (Usually best for simple price data)
+        # Try download first (Most robust)
         df = yf.download(ticker, period="1y", progress=False)
         
-        # If that returned empty, try Method 2: Ticker object
+        # Fallback to Ticker object
         if df.empty or len(df) < 5:
             stock = yf.Ticker(ticker, session=session)
             df = stock.history(period="1y")
 
-        # Validation
         if df is None or df.empty:
             return None, None
 
-        # Flatten Columns (Fix for yfinance bug)
+        # CRITICAL FIX: Flatten columns
         if isinstance(df.columns, pd.MultiIndex):
             try: df.columns = df.columns.get_level_values(0)
             except: pass
             
-        # Timezone remove
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
 
-        # Get Info (Optional - don't fail if this fails)
         try:
             stock_obj = yf.Ticker(ticker, session=session)
             info = stock_obj.info
@@ -353,20 +517,16 @@ def scan_market_safe(tickers):
                 continue
             
             df = calculate_indicators(df)
-            
-            # Check for required column
             if 'Close' not in df.columns: continue
 
             curr = df['Close'].iloc[-1]
             prev = df['Close'].iloc[-2]
             chg = ((curr - prev)/prev)*100
             
-            # RSI Check
             rsi = 50
             if 'RSI' in df.columns and not pd.isna(df['RSI'].iloc[-1]):
                 rsi = df['RSI'].iloc[-1]
             
-            # Verdict Logic
             ma50 = df['Close'].rolling(50).mean().iloc[-1]
             if pd.isna(ma50): ma50 = curr
 
@@ -387,7 +547,6 @@ def scan_market_safe(tickers):
                 verdict = "SELL"
                 reasons.append(f"✗ RSI ({rsi:.0f}) is Overbought -> Pullback Risk")
             
-            # Sniper Score
             score = 50
             if verdict == "BUY": score += 20
             if verdict == "STRONG BUY": score += 35
@@ -401,7 +560,6 @@ def scan_market_safe(tickers):
                 score += 10
                 reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
             
-            # Info Checks
             pe = info.get('trailingPE', None)
             bubble = "NO"
             if pe and pe > 35: 
@@ -621,28 +779,28 @@ if not st.session_state['logged_in']:
     st.markdown("<br><h2 style='text-align: center;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
     wc1, wc2 = st.columns(2)
     with wc1:
-        try: st.image("preview_dashboard.jpg", caption="Matrix Scanner (Live)")
+        try: st.image("preview_dashboard.jpg", caption="Matrix Scanner (Live)", use_container_width=True)
         except: st.info("[Dashboard Preview Missing]")
-        try: st.image("preview_ai.jpg", caption="AI Analyst (Live)")
+        try: st.image("preview_ai.jpg", caption="AI Analyst (Live)", use_container_width=True)
         except: st.info("[AI Preview Missing]")
         
     with wc2:
-        try: st.image("preview_chart.jpg", caption="Advanced Charting (Live)")
+        try: st.image("preview_chart.jpg", caption="Advanced Charting (Live)", use_container_width=True)
         except: st.info("[Chart Preview Missing]")
-        try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)")
+        try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
 
     # --- SNEAK PEEK FROM OUR APP (RE-ADDED) ---
     st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        try: st.image("dashboard.png", caption="App Dashboard") 
+        try: st.image("dashboard.png", caption="App Dashboard", use_container_width=True) 
         except: st.info("[App Dashboard Preview]")
     with c2:
-        try: st.image("analysis.png", caption="App Analysis") 
+        try: st.image("analysis.png", caption="App Analysis", use_container_width=True) 
         except: st.info("[App Analysis Preview]")
     with c3:
-        try: st.image("risk_insiders.png", caption="App Risk Profile") 
+        try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
         except: st.info("[App Risk Preview]")
     # ----------------------------------------
 
