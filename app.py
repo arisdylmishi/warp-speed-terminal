@@ -463,69 +463,84 @@ def get_spy_data():
     except: return None
 
 # ==============================================================
-# --- DIAGNOSTIC MODE: SHOWS API ERRORS ON SCREEN ---
+# --- ROBUST DATA FETCHER (CRASH FIX APPLIED) ---
 # ==============================================================
+@st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
-    # 1. VISUAL DEBUGGING ON SCREEN
-    st.info(f"🔍 DIAGNOSTIC FOR: {ticker}")
+    """
+    1. Tries yfinance (Session Removed to fix crash).
+    2. Fallback to Finnhub if YF fails.
+    """
     
-    # 2. CHECK SECRETS
-    finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
-    if not finnhub_key:
-        st.error("❌ CRITICAL: [finnhub] section missing in secrets.")
-    elif "PASTE_YOUR" in finnhub_key:
-        st.error("❌ CRITICAL: You still have the placeholder text in secrets!")
-    else:
-        st.success("✅ Secrets Loaded (Key looks valid)")
-
-    # 3. TRY YFINANCE
+    # --- PHASE 1: TRY YFINANCE (Standard Mode) ---
     try:
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'Mozilla/5.0'})
-        stock = yf.Ticker(ticker, session=session)
+        # FIX: We removed 'session=session' here. This fixes the crash.
+        stock = yf.Ticker(ticker)
         df = stock.history(period="1y")
         
+        # Check if empty
+        if df.empty or len(df) < 5:
+            # Attempt direct download as backup method
+            df = yf.download(ticker, period="1y", progress=False)
+        
         if df.empty:
-            st.warning(f"⚠️ yfinance returned 0 rows for {ticker} (BLOCKED)")
-        else:
-            st.success(f"✅ yfinance worked! ({len(df)} rows)")
-            return df, stock.info
+            raise ValueError("YF Empty Data")
+
+        # Cleanup YF Data
+        if isinstance(df.columns, pd.MultiIndex):
+            try: df.columns = df.columns.get_level_values(0)
+            except: pass
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+
+        info = stock.info
+        return df, info
 
     except Exception as e:
-        st.error(f"⚠️ yfinance crashed: {e}")
-
-    # 4. TRY FINNHUB FALLBACK
-    st.write("🔄 Switching to Finnhub...")
-    if not finnhub_key or "PASTE_YOUR" in finnhub_key:
-        return None, None
-
-    try:
-        finnhub_client = finnhub.Client(api_key=finnhub_key)
-        # Fix Crypto Symbols for Finnhub
-        lookup = ticker
-        if "BTC" in ticker: lookup = "BINANCE:BTCUSDT"
+        print(f"YFinance Failed for {ticker}: {e}")
         
-        # Test Call
-        end = int(time.time())
-        start = end - (30 * 24 * 60 * 60) # Just 30 days for test
-        res = finnhub_client.stock_candles(lookup, 'D', start, end)
-        
-        if res.get('s') == 'ok':
-            st.success(f"✅ Finnhub Succeeded for {lookup}!")
-            # Convert to DF
+        # --- PHASE 2: FALLBACK TO FINNHUB ---
+        try:
+            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+            
+            # Skip if key is missing or invalid
+            if not finnhub_key or "PASTE_YOUR" in finnhub_key:
+                return None, None
+
+            finnhub_client = finnhub.Client(api_key=finnhub_key)
+            
+            # Fix Crypto Symbols for Finnhub
+            lookup = ticker
+            if "BTC" in ticker: lookup = "BINANCE:BTCUSDT"
+            if "ETH" in ticker: lookup = "BINANCE:ETHUSDT"
+            
+            # Get Data
+            end = int(time.time())
+            start = end - (365 * 24 * 60 * 60)
+            res = finnhub_client.stock_candles(lookup, 'D', start, end)
+            
+            if res.get('s') != 'ok':
+                return None, None
+                
+            # Convert to DataFrame
             df = pd.DataFrame({
                 'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
                 'Close': res['c'], 'Volume': res['v']
             })
             df.index = pd.to_datetime(res['t'], unit='s')
-            return df, {}
-        else:
-            st.error(f"❌ Finnhub Failed. Status: {res.get('s')}. (Likely invalid Key or Symbol)")
-            return None, None
+            
+            # Basic Info Fallback
+            info = {
+                'marketCap': 0, 'trailingPE': 0, 'pegRatio': 0,
+                'dividendYield': 0, 'beta': 0
+            }
+            
+            st.toast(f"⚠️ Used Finnhub for {ticker}", icon="🛡️")
+            return df, info
 
-    except Exception as e:
-        st.error(f"❌ Finnhub Crashed: {e}")
-        return None, None
+        except Exception as fallback_error:
+            print(f"Both sources failed for {ticker}: {fallback_error}")
+            return None, None
 
 def scan_market_safe(tickers):
     results = []
