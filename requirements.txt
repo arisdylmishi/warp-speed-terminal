@@ -1,10 +1,10 @@
 streamlit
-yfinance>=0.2.50
 pandas
 numpy
-matplotlib
-seaborn
+yfinance>=0.2.50
+plotly
 textblob
 requests
-plotly
 supabase
+matplotlib
+seaborn
