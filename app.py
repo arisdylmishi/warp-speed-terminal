@@ -461,40 +461,47 @@ def get_spy_data():
         return spy
     except: return None
 
-# --- ROBUST DATA FETCHER (THIS IS THE FIX) ---
+# --- ROBUST DATA FETCHER ---
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
     """
-    Fetches history and info. Flattens complex tables to stop 'No Valid Data' errors.
+    Fetches history and info with caching to prevent IP bans.
+    Aggressively flattens columns to fix 'No Valid Data' errors.
     """
-    session = requests.Session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'})
-
     try:
-        # Try download first (Most robust)
-        df = yf.download(ticker, period="1y", progress=False)
-        
-        # Fallback to Ticker object
-        if df.empty or len(df) < 5:
-            stock = yf.Ticker(ticker, session=session)
-            df = stock.history(period="1y")
+        # Create a session with browser headers
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+        })
 
-        if df is None or df.empty:
+        stock = yf.Ticker(ticker, session=session)
+        
+        # 1. Try history
+        df = stock.history(period="1y")
+        
+        # 2. If empty, try simple download
+        if df.empty or len(df) < 5:
+            df = yf.download(ticker, period="1y", progress=False)
+        
+        # If still empty
+        if df.empty:
             return None, None
 
-        # CRITICAL FIX: Flatten columns
+        # 3. CRITICAL: FLATTEN MULTI-INDEX (Fixes the yfinance 0.2.x bug)
         if isinstance(df.columns, pd.MultiIndex):
             try: df.columns = df.columns.get_level_values(0)
             except: pass
             
+        # 4. REMOVE TIMEZONE
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
 
+        # 5. FETCH INFO
         try:
-            stock_obj = yf.Ticker(ticker, session=session)
-            info = stock_obj.info
+            info = stock.info
         except:
-            info = {}
+            info = {} 
 
         return df, info
 
@@ -567,11 +574,16 @@ def scan_market_safe(tickers):
                 score -= 20
                 reasons.append("⚠️ Bubble Alert: High P/E")
             
+            # --- FIX: ROBUST INFO EXTRACTION ---
             peg = info.get('pegRatio', 'N/A')
-            target_price = info.get('targetMeanPrice', 'N/A')
-            rec_key = info.get('recommendationKey', 'N/A')
-            if isinstance(rec_key, str): consensus = rec_key.upper().replace('_', ' ')
-            else: consensus = "N/A"
+            
+            target_price = info.get('targetMeanPrice', info.get('targetHighPrice', 'N/A'))
+            
+            rec_key = info.get('recommendationKey', info.get('financialCurrency', 'N/A'))
+            if isinstance(rec_key, str) and rec_key != 'N/A':
+                consensus = rec_key.upper().replace('_', ' ')
+            else:
+                consensus = "N/A"
             
             news_items = get_google_news(t)
             ai_summary, valid_news = generate_ai_summary(news_items)
@@ -1092,8 +1104,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with t4: 
             i = target['Info']
             c1, c2 = st.columns(2)
-            c1.metric("Beta (Volatility)", i.get('beta', '-'))
-            c2.metric("Short Ratio", i.get('shortRatio', '-'))
+            c1.metric("Beta (Volatility)", i.get('beta', 'N/A'))
+            c2.metric("Short Ratio", i.get('shortRatio', 'N/A'))
             
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
@@ -1101,9 +1113,15 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             try: 
                 ticker_obj = yf.Ticker(sel_t)
                 holders = ticker_obj.institutional_holders
-                if holders is None or holders.empty: holders = ticker_obj.major_holders
-                if holders is not None and not holders.empty: st.table(holders.astype(str))
-                else: st.info("No institutional data available via API.")
+                if holders is None or holders.empty: 
+                    holders = ticker_obj.major_holders
+                
+                if holders is not None and not holders.empty: 
+                    # Clean up the table for display
+                    holders = holders.head(10) # Limit to top 10
+                    st.table(holders)
+                else: 
+                    st.info("No institutional data available via API.")
             except Exception as e: 
                 st.error("System Error: Unable to fetch holdings data.")
 
