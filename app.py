@@ -502,7 +502,7 @@ def fetch_finviz_data(ticker):
             'recommendationKey': 'Hold'
         }
         return info
-    except Exception as e:
+    except Exception:
         # Silently fail so main app doesnt crash
         return {}
 
@@ -581,19 +581,27 @@ def fetch_ticker_data(ticker, period="1y"):
             for k, v in finviz_data.items():
                 if k not in info or not info[k]:
                     info[k] = v
-            st.toast(f"ℹ️ Retrieved Data from Finviz for {ticker}", icon="🕵️")
 
-    # Provider 3: Finnhub (Last Resort)
-    if not info.get('marketCap'):
-        try:
-            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
-            if finnhub_key:
-                client = finnhub.Client(api_key=finnhub_key)
-                prof = client.company_profile2(symbol=ticker)
-                quote = client.quote(ticker)
+    # Provider 3: Finnhub (Last Resort + Profile Fill)
+    try:
+        finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+        if finnhub_key:
+            client = finnhub.Client(api_key=finnhub_key)
+            prof = client.company_profile2(symbol=ticker)
+            quote = client.quote(ticker)
+            
+            # Fill Profile if missing
+            if not info.get('sector') or info.get('sector') == 'N/A':
+                info['sector'] = prof.get('finnhubIndustry', 'N/A')
+                info['industry'] = prof.get('finnhubIndustry', 'N/A')
+                info['longBusinessSummary'] = f"A leading player in the {prof.get('finnhubIndustry', 'Market')} sector."
+            
+            # Fill Market Cap/Price if missing
+            if not info.get('marketCap'):
                 info['marketCap'] = prof.get('marketCapitalization', 0) * 1_000_000
-                info['currentPrice'] = quote.get('c', 0)
-        except: pass
+            
+            info['currentPrice'] = quote.get('c', 0)
+    except: pass
 
     return df, info
 
@@ -1219,19 +1227,32 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
             try: 
-                # Use YahooQuery for holdings (Works when yfinance is blocked)
+                # YahooQuery Institutional Ownership Check
                 yq = YQTicker(sel_t)
                 holders = yq.institution_ownership
                 
-                if holders is not None and not isinstance(holders, dict) and not holders.empty: 
-                    # Clean up the table for display
+                # Check for dataframe validity
+                if holders is not None and isinstance(holders, pd.DataFrame) and not holders.empty:
+                    # Cleanup columns for display
                     if 'organization' in holders.columns:
-                        st.table(holders[['organization', 'pctHeld', 'value']].head(10))
+                        display_df = holders[['organization', 'pctHeld', 'value']].head(10)
+                        # Rename for cleaner UI
+                        display_df.columns = ['Organization', '% Held', 'Value']
+                        st.table(display_df)
                     else:
                         st.table(holders.head(10))
+                
+                # Check for dict validity (sometimes yq returns dict)
+                elif isinstance(holders, dict):
+                     # Try to parse if it's a dict containing a dataframe or list
+                     if sel_t in holders and isinstance(holders[sel_t], pd.DataFrame):
+                         st.table(holders[sel_t].head(10))
+                     else:
+                         st.info("No specific holdings data found in API response.")
                 else: 
                     st.info("No institutional data available via API.")
             except Exception as e: 
+                # Graceful degradation - just show the message, don't crash
                 st.info("Institutional data unavailable (Feed restricted).")
 
     elif not run_scan:
