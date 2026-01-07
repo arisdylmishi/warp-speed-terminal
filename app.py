@@ -27,208 +27,37 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME INJECTION: MATCHING INDEX.HTML ---
+# --- THEME INJECTION ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500;700&display=swap');
-
-        /* GLOBAL VARS */
-        :root {
-            --bg: #050505;
-            --primary: #00ff41; /* Neon Green */
-            --secondary: #00d4ff; /* Cyan */
-            --text: #e0e0e0;
-            --border: rgba(0, 255, 65, 0.4);
-            --surface: #0a0a0a;
-        }
-
-        /* MAIN APP CONTAINER */
-        .stApp {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Fira Code', monospace;
-        }
-
-        /* FONT FIX: Apply only to specific elements */
-        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable {
-            font-family: 'Fira Code', monospace !important;
-        }
-
-        /* SCANLINE OVERLAY */
-        .stApp::before {
-            content: " ";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
-                        linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
-            z-index: 9999;
-            background-size: 100% 3px, 3px 100%;
-            pointer-events: none;
-        }
-
-        /* TYPOGRAPHY COLORS */
-        h1, h2, h3, h4, h5, h6 {
-            color: var(--primary) !important;
-            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
-            letter-spacing: 1px;
-        }
-
-        /* INPUT FIELDS */
-        .stTextInput input {
-            background-color: #000 !important;
-            color: var(--primary) !important;
-            border: 1px solid var(--primary) !important;
-            border-radius: 0px !important;
-        }
-        .stTextInput input:focus {
-            box-shadow: 0 0 10px var(--primary) !important;
-        }
-
-        /* BUTTONS */
-        .stButton>button {
-            width: 100%;
-            border-radius: 0px;
-            font-weight: 700;
-            height: 3em;
-            text-transform: uppercase;
-            border: 1px solid var(--primary);
-            background-color: rgba(0, 255, 65, 0.1);
-            color: var(--primary);
-            transition: all 0.3s;
-            letter-spacing: 2px;
-        }
-        .stButton>button:hover {
-            background-color: var(--primary);
-            color: #000;
-            box-shadow: 0 0 20px var(--primary);
-        }
-
-        /* METRICS */
-        div[data-testid="stMetricValue"] {
-            font-size: 1.8rem !important;
-            color: var(--secondary) !important; 
-            font-weight: bold;
-            text-shadow: 0 0 10px var(--secondary);
-        }
-        div[data-testid="stMetricLabel"] {
-            color: #888 !important;
-            font-size: 0.8rem !important;
-        }
-
-        /* EXPANDERS & BOXES */
-        .streamlit-expanderHeader {
-            background-color: var(--surface) !important;
-            border: 1px solid var(--border) !important;
-            color: var(--primary) !important;
-            border-radius: 0px !important;
-        }
-        
-        .ai-box {
-            background-color: rgba(0, 212, 255, 0.05);
-            padding: 15px;
-            border-left: 4px solid var(--secondary);
-            margin-bottom: 10px;
-            color: #eee;
-            border: 1px solid rgba(0, 212, 255, 0.2);
-        }
-        
-        .reason-box {
-            background-color: rgba(0, 255, 65, 0.05); 
-            padding: 10px; 
-            border-left: 3px solid var(--primary); 
-            margin-bottom: 5px;
-            font-size: 0.9em;
-            border: 1px solid rgba(0, 255, 65, 0.2);
-        }
-        
-        .coming-soon {
-            background-color: var(--primary);
-            color: black;
-            padding: 4px 10px;
-            font-weight: 800;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            vertical-align: middle;
-            margin-left: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* TABS */
-        .stTabs [data-baseweb="tab-list"] {
-            border-bottom: 1px solid var(--border);
-        }
-        .stTabs [data-baseweb="tab"] {
-            color: #888;
-        }
-        .stTabs [aria-selected="true"] {
-            color: var(--primary) !important;
-            border-bottom-color: var(--primary) !important;
-        }
-
-        /* --- TABLE FIXES (CRITICAL) --- */
-        /* Force Dataframes to match theme */
-        [data-testid="stDataFrame"] {
-            border: 1px solid var(--border);
-            background-color: #050505 !important;
-        }
-        [data-testid="stDataFrame"] * {
-            color: var(--text) !important;
-            background-color: #050505 !important;
-        }
-        
-        /* Force Standard Tables (st.table) to match theme */
-        table {
-            color: var(--text) !important;
-            background-color: #050505 !important;
-            border-collapse: collapse !important;
-            width: 100%;
-            font-family: 'Fira Code', monospace !important;
-        }
-        th {
-            background-color: #111 !important;
-            color: var(--primary) !important;
-            border-bottom: 1px solid var(--primary) !important;
-            padding: 10px !important;
-        }
-        td {
-            border-bottom: 1px solid #333 !important;
-            padding: 8px !important;
-        }
-
-        /* PAYWALL CARDS */
-        .plan-card {
-            border: 1px solid var(--primary);
-            background-color: rgba(0,0,0,0.8);
-            padding: 20px;
-            text-align: center;
-            height: 100%;
-            transition: 0.3s;
-        }
-        .plan-card:hover {
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
-            transform: translateY(-5px);
-        }
-        .plan-title {
-            color: var(--primary);
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-        }
-        .plan-price {
-            font-size: 2rem;
-            color: var(--secondary);
-            font-family: 'Fira Code', monospace;
-            font-weight: bold;
-            text-shadow: 0 0 10px var(--secondary);
-        }
-        .best-value {
-            border: 1px solid var(--secondary);
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
-        }
+        :root { --bg: #050505; --primary: #00ff41; --secondary: #00d4ff; --text: #e0e0e0; --border: rgba(0, 255, 65, 0.4); --surface: #0a0a0a; }
+        .stApp { background-color: var(--bg); color: var(--text); font-family: 'Fira Code', monospace; }
+        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable { font-family: 'Fira Code', monospace !important; }
+        .stApp::before { content: " "; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03)); z-index: 9999; background-size: 100% 3px, 3px 100%; pointer-events: none; }
+        h1, h2, h3, h4, h5, h6 { color: var(--primary) !important; text-shadow: 0 0 10px rgba(0, 255, 65, 0.5); letter-spacing: 1px; }
+        .stTextInput input { background-color: #000 !important; color: var(--primary) !important; border: 1px solid var(--primary) !important; border-radius: 0px !important; }
+        .stButton>button { width: 100%; border-radius: 0px; font-weight: 700; height: 3em; text-transform: uppercase; border: 1px solid var(--primary); background-color: rgba(0, 255, 65, 0.1); color: var(--primary); transition: all 0.3s; letter-spacing: 2px; }
+        .stButton>button:hover { background-color: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
+        div[data-testid="stMetricValue"] { font-size: 1.8rem !important; color: var(--secondary) !important; font-weight: bold; text-shadow: 0 0 10px var(--secondary); }
+        div[data-testid="stMetricLabel"] { color: #888 !important; font-size: 0.8rem !important; }
+        .streamlit-expanderHeader { background-color: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--primary) !important; border-radius: 0px !important; }
+        .ai-box { background-color: rgba(0, 212, 255, 0.05); padding: 15px; border-left: 4px solid var(--secondary); margin-bottom: 10px; color: #eee; border: 1px solid rgba(0, 212, 255, 0.2); }
+        .reason-box { background-color: rgba(0, 255, 65, 0.05); padding: 10px; border-left: 3px solid var(--primary); margin-bottom: 5px; font-size: 0.9em; border: 1px solid rgba(0, 255, 65, 0.2); }
+        .coming-soon { background-color: var(--primary); color: black; padding: 4px 10px; font-weight: 800; border-radius: 4px; font-size: 0.7rem; vertical-align: middle; margin-left: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid var(--border); }
+        .stTabs [data-baseweb="tab"] { color: #888; }
+        .stTabs [aria-selected="true"] { color: var(--primary) !important; border-bottom-color: var(--primary) !important; }
+        [data-testid="stDataFrame"] { border: 1px solid var(--border); background-color: #050505 !important; }
+        [data-testid="stDataFrame"] * { color: var(--text) !important; background-color: #050505 !important; }
+        table { color: var(--text) !important; background-color: #050505 !important; border-collapse: collapse !important; width: 100%; font-family: 'Fira Code', monospace !important; }
+        th { background-color: #111 !important; color: var(--primary) !important; border-bottom: 1px solid var(--primary) !important; padding: 10px !important; }
+        td { border-bottom: 1px solid #333 !important; padding: 8px !important; }
+        .plan-card { border: 1px solid var(--primary); background-color: rgba(0,0,0,0.8); padding: 20px; text-align: center; height: 100%; transition: 0.3s; }
+        .plan-card:hover { box-shadow: 0 0 15px rgba(0, 255, 65, 0.3); transform: translateY(-5px); }
+        .plan-title { color: var(--primary); font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .plan-price { font-size: 2rem; color: var(--secondary); font-family: 'Fira Code', monospace; font-weight: bold; text-shadow: 0 0 10px var(--secondary); }
+        .best-value { border: 1px solid var(--secondary); box-shadow: 0 0 15px rgba(0, 212, 255, 0.2); }
     </style>
 """, unsafe_allow_html=True)
 
@@ -387,13 +216,12 @@ CONFIDENTIAL - GENERATED BY WARP SPEED TERMINAL
 def calculate_indicators(hist):
     if hist.empty: return hist
     
-    # Ensure safe column access by flattening if needed
+    # Flatten columns if multi-index (Fix for yfinance)
     if isinstance(hist.columns, pd.MultiIndex):
-        hist.columns = hist.columns.get_level_values(0)
-    
-    # Check if 'Close' column exists
-    if 'Close' not in hist.columns:
-        return hist
+        try: hist.columns = hist.columns.get_level_values(0)
+        except: pass
+        
+    if 'Close' not in hist.columns: return hist
 
     delta = hist['Close'].diff()
     gain = delta.where(delta > 0, 0)
@@ -401,7 +229,7 @@ def calculate_indicators(hist):
     avg_gain = gain.ewm(com=13, adjust=False).mean()
     avg_loss = loss.ewm(com=13, adjust=False).mean()
     
-    # Avoid division by zero
+    # Fix division by zero
     rs = avg_gain / avg_loss.replace(0, 0.001)
     hist['RSI'] = 100 - (100 / (1 + rs))
     
@@ -459,63 +287,54 @@ def format_large_number(num):
 def get_spy_data():
     try:
         spy = yf.Ticker("SPY").history(period="1y")
-        # Fix Column Flattening
-        if isinstance(spy.columns, pd.MultiIndex):
-            spy.columns = spy.columns.get_level_values(0)
-        
+        if isinstance(spy.columns, pd.MultiIndex): spy.columns = spy.columns.get_level_values(0)
         spy = spy['Close']
         spy.index = spy.index.tz_localize(None)
         return spy
     except: return None
 
-# --- CRITICAL FIX: DATA FETCHING AND FLATTENING ---
+# --- ROBUST DATA FETCHER ---
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
     """
-    Fetches history and info with caching.
-    Aggressively flattens columns to fix 'No Valid Data' errors.
+    Tries multiple methods to fetch data to bypass blockages.
     """
-    try:
-        # Create a session with browser headers
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
-        })
+    # Create session with headers
+    session = requests.Session()
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'})
 
-        stock = yf.Ticker(ticker, session=session)
+    try:
+        # METHOD 1: yf.download (Usually best for simple price data)
+        df = yf.download(ticker, period="1y", progress=False)
         
-        # 1. Try history
-        df = stock.history(period="1y")
-        
-        # 2. If empty, try simple download
+        # If that returned empty, try Method 2: Ticker object
         if df.empty or len(df) < 5:
-            df = yf.download(ticker, period="1y", progress=False)
-        
-        # If still empty
-        if df.empty:
+            stock = yf.Ticker(ticker, session=session)
+            df = stock.history(period="1y")
+
+        # Validation
+        if df is None or df.empty:
             return None, None
 
-        # 3. CRITICAL: FLATTEN MULTI-INDEX (Fixes the yfinance 0.2.x bug)
+        # Flatten Columns (Fix for yfinance bug)
         if isinstance(df.columns, pd.MultiIndex):
-            try:
-                df.columns = df.columns.get_level_values(0)
-            except:
-                pass
-        
-        # 4. REMOVE TIMEZONE
+            try: df.columns = df.columns.get_level_values(0)
+            except: pass
+            
+        # Timezone remove
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
 
-        # 5. FETCH INFO
+        # Get Info (Optional - don't fail if this fails)
         try:
-            info = stock.info
+            stock_obj = yf.Ticker(ticker, session=session)
+            info = stock_obj.info
         except:
-            info = {} 
+            info = {}
 
         return df, info
 
-    except Exception as e:
-        print(f"FETCH ERROR FOR {ticker}: {e}")
+    except Exception:
         return None, None
 
 def scan_market_safe(tickers):
@@ -528,28 +347,28 @@ def scan_market_safe(tickers):
         try:
             my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
             
-            # Use cached fetch
             df, info = fetch_ticker_data(t)
             
             if df is None or df.empty:
                 continue
             
-            # Indicators
             df = calculate_indicators(df)
             
-            # Ensure safe access to data
+            # Check for required column
             if 'Close' not in df.columns: continue
 
             curr = df['Close'].iloc[-1]
             prev = df['Close'].iloc[-2]
             chg = ((curr - prev)/prev)*100
             
-            # Safety check for RSI
-            rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns and not pd.isna(df['RSI'].iloc[-1]) else 50
+            # RSI Check
+            rsi = 50
+            if 'RSI' in df.columns and not pd.isna(df['RSI'].iloc[-1]):
+                rsi = df['RSI'].iloc[-1]
             
             # Verdict Logic
             ma50 = df['Close'].rolling(50).mean().iloc[-1]
-            if pd.isna(ma50): ma50 = curr # Fallback
+            if pd.isna(ma50): ma50 = curr
 
             verdict = "HOLD"
             reasons = [] 
@@ -576,15 +395,13 @@ def scan_market_safe(tickers):
             
             vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
             current_vol = df['Volume'].iloc[-1]
-            
-            # Avoid divide by zero
             rvol = current_vol / vol_mean if (vol_mean > 0 and not pd.isna(vol_mean)) else 1.0
             
             if rvol > 1.5: 
                 score += 10
                 reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
             
-            # Info
+            # Info Checks
             pe = info.get('trailingPE', None)
             bubble = "NO"
             if pe and pe > 35: 
@@ -595,12 +412,9 @@ def scan_market_safe(tickers):
             peg = info.get('pegRatio', 'N/A')
             target_price = info.get('targetMeanPrice', 'N/A')
             rec_key = info.get('recommendationKey', 'N/A')
-            if isinstance(rec_key, str):
-                consensus = rec_key.upper().replace('_', ' ')
-            else:
-                consensus = "N/A"
+            if isinstance(rec_key, str): consensus = rec_key.upper().replace('_', ' ')
+            else: consensus = "N/A"
             
-            # NEWS HANDLING (GOOGLE NEWS INTEGRATION)
             news_items = get_google_news(t)
             ai_summary, valid_news = generate_ai_summary(news_items)
             
@@ -611,8 +425,7 @@ def scan_market_safe(tickers):
                 "TargetPrice": target_price, "Consensus": consensus,
                 "AISummary": ai_summary
             })
-        except Exception as e:
-            # Silently fail on individual tickers to keep the app running
+        except Exception:
             continue
         
     my_bar.empty()
@@ -646,11 +459,7 @@ def add_user(email, password):
     current_date = datetime.now().strftime("%Y-%m-%d")
     try:
         supabase.table("users").insert({
-            "email": email, 
-            "password": hashed_pw, 
-            "status": 'expired', 
-            "join_date": current_date, 
-            "expiry_date": past_date
+            "email": email, "password": hashed_pw, "status": 'expired', "join_date": current_date, "expiry_date": past_date
         }).execute()
         return True
     except: return False
@@ -660,8 +469,7 @@ def login_user_db(email, password):
     hashed_pw = make_hashes(password)
     try:
         res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
-        if res.data:
-            return [list(res.data[0].values())]
+        if res.data: return [list(res.data[0].values())]
     except: pass
     return []
 
@@ -698,8 +506,7 @@ query_params = st.query_params
 
 if "payment_success" in query_params and st.session_state['logged_in']:
     token_received = query_params.get("token", "")
-    try:
-        secret_check = st.secrets["payment"]["secret_token"]
+    try: secret_check = st.secrets["payment"]["secret_token"]
     except KeyError:
         st.error("SYSTEM ERROR: Payment secret not configured.")
         secret_check = "MISSING_SECRET"
@@ -916,29 +723,23 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.container():
         try:
             col1, col2, col3, col4 = st.columns(4)
-            
-            # VIX
             vix = yf.Ticker("^VIX").history(period="2d")
             if not vix.empty: col1.metric("VIX (Fear)", f"{vix['Close'].iloc[-1]:.2f}")
             else: col1.metric("VIX", "N/A")
             
-            # 10Y BOND
             tnx = yf.Ticker("^TNX").history(period="2d")
             if not tnx.empty: col2.metric("10Y Bond", f"{tnx['Close'].iloc[-1]:.2f}%")
             else: col2.metric("10Y Bond", "N/A")
             
-            # BTC
             btc = yf.Ticker("BTC-USD").history(period="2d")
             if not btc.empty: 
                 chg = (btc['Close'].iloc[-1] - btc['Close'].iloc[-2]) / btc['Close'].iloc[-2] * 100
                 col3.metric("Bitcoin", f"${btc['Close'].iloc[-1]:,.0f}", f"{chg:.2f}%")
             else: col3.metric("Bitcoin", "N/A")
             
-            # OIL
             oil = yf.Ticker("CL=F").history(period="2d")
             if not oil.empty: col4.metric("Crude Oil", f"${oil['Close'].iloc[-1]:.2f}")
             else: col4.metric("Crude Oil", "N/A")
-            
         except: st.caption("Macro Data Offline")
             
     st.divider()
@@ -968,12 +769,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         if ticks:
             st.session_state['data'] = scan_market_safe(ticks)
             if not st.session_state['data']:
-                st.warning("No valid data found.")
+                st.warning("No valid data found. If this persists, the data feed is temporarily blocked.")
         else:
             st.warning("Please enter a symbol.")
 
     if 'data' in st.session_state and st.session_state['data']:
-        # 1. TABLE (CHANGED TO ST.TABLE FOR CYBERPUNK THEME COMPATIBILITY)
+        # 1. TABLE
         df_view = pd.DataFrame([{
             "TICKER": d['Ticker'],
             "PRICE": f"{d['Price']:.2f}",
@@ -990,7 +791,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             color = '#00FF41' if 'BUY' in val else '#ff4b4b' if 'SELL' in val else 'white'
             return f'color: {color}; font-weight: bold'
         
-        # FIX: Using st.table ensures correct text/background colors in the dark theme
         st.table(df_view.style.map(highlight_verdict, subset=['VERDICT']))
         
         # --- MARKET HEATMAP ---
@@ -998,9 +798,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("### 🗺️ MARKET HEATMAP")
             map_data = []
             for d in st.session_state['data']:
-                mcap = d['Info'].get('marketCap', 1000000) # fallback
+                mcap = d['Info'].get('marketCap', 1000000)
                 if not isinstance(mcap, (int, float)): mcap = 1000000
-                
                 map_data.append({
                     "Ticker": d['Ticker'],
                     "Market Cap": mcap,
@@ -1041,37 +840,25 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         t1, t2, t3, t4 = st.tabs(["CHART & EVENT HORIZON", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK"])
         
         with t1: 
-            # EXPLANATION BOX
             with st.expander("ℹ️ HOW TO READ THE CHART & PREDICTIONS"):
                 st.markdown("""
                 * **Magenta Line (Oracle Ghost):** The algorithm detects a similar historical price pattern and projects it forward.
-                * **Green/Red Cloud (Event Horizon):** Monte Carlo simulation. Shows the statistical probability range (Best/Worst case) for the next 30 days based on volatility.
+                * **Green/Red Cloud (Event Horizon):** Monte Carlo simulation. Shows the statistical probability range.
                 * **Dotted Lines (Res/Sup):** Auto-generated Resistance and Support levels.
-                * **Yellow Line (SPY):** S&P 500 performance for relative comparison.
                 """)
 
-            # PLOTLY CHART
             hist = target['History']
             ghost = find_oracle_pattern(hist['Close'])
             spy = get_spy_data()
             high_lvl, low_lvl, fibs = calculate_smart_levels(hist)
             upper, lower, avg = calculate_monte_carlo(hist)
             
-            fig = make_subplots(
-                rows=2, 
-                cols=1, 
-                shared_xaxes=True, 
-                vertical_spacing=0.05, 
-                row_heights=[0.7, 0.3]
-            )
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
             
-            # Candlesticks
             fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'), row=1, col=1)
-            # BB
             fig.add_trace(go.Scatter(x=hist.index, y=hist['UpperBB'], line=dict(color='cyan', width=1), name='Upper BB'), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['LowerBB'], line=dict(color='cyan', width=1), name='Lower BB'), row=1, col=1)
             
-            # SPY Overlay
             if spy is not None:
                 spy_subset = spy.reindex(hist.index, method='nearest')
                 if not spy_subset.empty:
@@ -1079,28 +866,21 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     spy_scaled = spy_subset * scaling_factor
                     fig.add_trace(go.Scatter(x=spy_subset.index, y=spy_scaled, line=dict(color='yellow', width=2), name='S&P 500 (Rel)'), row=1, col=1)
 
-            # Oracle Ghost
             if ghost is not None:
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(len(ghost))]
                 fig.add_trace(go.Scatter(x=future_dates, y=ghost, line=dict(color='magenta', dash='dash', width=2), name='Oracle Ghost'), row=1, col=1)
 
-            # MONTE CARLO (EVENT HORIZON)
             if upper is not None:
                 last_date = hist.index[-1]
                 future_dates = [last_date + timedelta(days=i) for i in range(30)]
                 fig.add_trace(go.Scatter(x=future_dates, y=upper, line=dict(color='green', width=0), showlegend=False), row=1, col=1)
                 fig.add_trace(go.Scatter(x=future_dates, y=lower, line=dict(color='red', width=0), fill='tonexty', fillcolor='rgba(0, 255, 0, 0.1)', name='Probability Cloud'), row=1, col=1)
 
-            # SMART TECHNICALS
             if high_lvl:
                 fig.add_hline(y=high_lvl, line_dash="dot", annotation_text="Res", annotation_position="top right", line_color="red")
                 fig.add_hline(y=low_lvl, line_dash="dot", annotation_text="Sup", annotation_position="bottom right", line_color="green")
-                # Fibonacci
-                for name, val in fibs.items():
-                    fig.add_hline(y=val, line_dash="dash", line_color="gray", annotation_text=name, opacity=0.5)
 
-            # MACD
             fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='#00FF41'), name='MACD'), row=2, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='#ff4b4b'), name='Signal'), row=2, col=1)
             fig.add_trace(go.Bar(x=hist.index, y=hist['MACD']-hist['Signal'], marker_color='gray', name='Hist'), row=2, col=1)
@@ -1118,7 +898,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
         with t2: 
             i = target['Info']
-            
             st.markdown("##### 🏦 WALL STREET")
             w1, w2 = st.columns(2)
             w1.metric("Consensus", str(target.get('Consensus', 'N/A')))
@@ -1140,15 +919,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("### 🧠 AI ANALYST BRIEFING")
             st.markdown(f"<div class='ai-box'>{target['AISummary']}</div>", unsafe_allow_html=True)
             
-            # CEO REPORT BUTTON
             report_text = generate_ceo_report(target)
-            st.download_button(
-                label="📄 DOWNLOAD INTELLIGENCE REPORT",
-                data=report_text,
-                file_name=f"{target['Ticker']}_Intelligence_Report.txt",
-                mime="text/plain",
-                type="primary"
-            )
+            st.download_button(label="📄 DOWNLOAD INTELLIGENCE REPORT", data=report_text, file_name=f"{target['Ticker']}_Intelligence_Report.txt", mime="text/plain", type="primary")
             
             st.markdown("#### 📰 LATEST HEADLINES")
             news = target.get('News', [])
@@ -1156,7 +928,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                 for n in news[:5]:
                     t_title = n.get('title', 'No Title')
                     t_link = n.get('link', '#')
-                    # Make link clickable and blue
                     st.markdown(f"• <a href='{t_link}' target='_blank' style='color: #00d4ff; text-decoration: none;'>{t_title}</a>", unsafe_allow_html=True)
             else: st.write("No news found.")
             
@@ -1169,20 +940,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            # --- IMPROVED HOLDINGS FETCHING (USING ST.TABLE) ---
             try: 
                 ticker_obj = yf.Ticker(sel_t)
                 holders = ticker_obj.institutional_holders
-                
-                # Fallback
-                if holders is None or holders.empty:
-                    holders = ticker_obj.major_holders
-                
-                if holders is not None and not holders.empty:
-                    # Use st.table which renders pure HTML and respects our CSS better than dataframe canvas
-                    st.table(holders.astype(str))
-                else:
-                    st.info("No institutional data available via API.")
+                if holders is None or holders.empty: holders = ticker_obj.major_holders
+                if holders is not None and not holders.empty: st.table(holders.astype(str))
+                else: st.info("No institutional data available via API.")
             except Exception as e: 
                 st.error("System Error: Unable to fetch holdings data.")
 
