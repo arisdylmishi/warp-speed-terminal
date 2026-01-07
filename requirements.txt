@@ -10,3 +10,6 @@ supabase
 matplotlib
 seaborn
 yahooquery
+lxml
+html5lib
+bs4
