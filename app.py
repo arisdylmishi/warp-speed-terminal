@@ -452,6 +452,150 @@ def get_spy_data():
         return spy
     except: return None
 
+# --- MOVED TO TOP LEVEL TO PREVENT STREAMLIT CACHING ERRORS ---
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_ticker_data(ticker):
+    """
+    Fetches history and info with caching to prevent IP bans.
+    Retries automatically if data is missing.
+    """
+    try:
+        # Create a session with browser headers to avoid bot detection
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+        })
+
+        stock = yf.Ticker(ticker, session=session)
+        
+        # Attempt 1: History
+        df = stock.history(period="1y")
+        
+        # Attempt 2: Fallback to download if empty
+        if df.empty or len(df) < 5:
+            df = yf.download(ticker, period="1y", progress=False, ignore_tz=True)
+        
+        # If still empty, return None
+        if df.empty:
+            return None, None
+
+        # FIX: Flatten MultiIndex columns (Common yfinance 0.2.x issue)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        # Fetch Info (safely)
+        try:
+            info = stock.info
+        except:
+            info = {} # Fallback if info fails but price works
+
+        return df, info
+
+    except Exception:
+        return None, None
+
+def scan_market_safe(tickers):
+    results = []
+    progress_text = "SCANNING NETWORK..."
+    my_bar = st.progress(0, text=progress_text)
+    total = len(tickers)
+    
+    for idx, t in enumerate(tickers):
+        try:
+            my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
+            
+            # Use cached fetch
+            df, info = fetch_ticker_data(t)
+            
+            if df is None or df.empty:
+                continue
+            
+            # Timezone cleanup
+            if df.index.tz is not None: df.index = df.index.tz_localize(None)
+
+            # Indicators
+            df = calculate_indicators(df)
+            
+            # Ensure safe access to data
+            if 'Close' not in df.columns: continue
+
+            curr = df['Close'].iloc[-1]
+            prev = df['Close'].iloc[-2]
+            chg = ((curr - prev)/prev)*100
+            
+            # Safety check for RSI
+            rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns else 50
+            
+            # Verdict Logic
+            ma50 = df['Close'].rolling(50).mean().iloc[-1]
+            if pd.isna(ma50): ma50 = curr # Fallback
+
+            verdict = "HOLD"
+            reasons = [] 
+            
+            if curr > ma50:
+                reasons.append(f"✓ Price (${curr:.2f}) > 50MA -> Bullish Trend")
+                if rsi < 70: verdict = "BUY"
+            else:
+                reasons.append(f"✗ Price (${curr:.2f}) < 50MA -> Bearish Trend")
+                if rsi > 70: verdict = "SELL"
+            
+            if rsi < 30: 
+                verdict = "STRONG BUY"
+                reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
+            elif rsi > 70:
+                verdict = "SELL"
+                reasons.append(f"✗ RSI ({rsi:.0f}) is Overbought -> Pullback Risk")
+            
+            # Sniper Score
+            score = 50
+            if verdict == "BUY": score += 20
+            if verdict == "STRONG BUY": score += 35
+            if rsi < 30: score += 20
+            
+            vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
+            current_vol = df['Volume'].iloc[-1]
+            
+            # Avoid divide by zero
+            rvol = current_vol / vol_mean if (vol_mean > 0 and not pd.isna(vol_mean)) else 1.0
+            
+            if rvol > 1.5: 
+                score += 10
+                reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
+            
+            # Info
+            pe = info.get('trailingPE', None)
+            bubble = "NO"
+            if pe and pe > 35: 
+                bubble = "🚨 YES"
+                score -= 20
+                reasons.append("⚠️ Bubble Alert: High P/E")
+            
+            peg = info.get('pegRatio', 'N/A')
+            target_price = info.get('targetMeanPrice', 'N/A')
+            rec_key = info.get('recommendationKey', 'N/A')
+            if isinstance(rec_key, str):
+                consensus = rec_key.upper().replace('_', ' ')
+            else:
+                consensus = "N/A"
+            
+            # NEWS HANDLING (GOOGLE NEWS INTEGRATION)
+            news_items = get_google_news(t)
+            ai_summary, valid_news = generate_ai_summary(news_items)
+            
+            results.append({
+                "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
+                "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, 
+                "History": df, "Info": info, "News": valid_news, "Reasons": reasons,
+                "TargetPrice": target_price, "Consensus": consensus,
+                "AISummary": ai_summary
+            })
+        except Exception as e:
+            continue
+        
+    my_bar.empty()
+    return results
+
 # ==========================================
 # --- 3. CLOUD DATABASE (SUPABASE DIRECT) ---
 # ==========================================
@@ -776,135 +920,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         except: st.caption("Macro Data Offline")
             
     st.divider()
-
-    # --- NEW CACHED DATA FETCHER (Prevents Yahoo Blocks) ---
-    @st.cache_data(ttl=900, show_spinner=False)
-    def fetch_ticker_data(ticker):
-        """
-        Fetches history and info with caching to prevent IP bans.
-        Retries automatically if data is missing.
-        """
-        try:
-            # Create a session with browser headers to avoid bot detection
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
-            })
-
-            stock = yf.Ticker(ticker, session=session)
-            
-            # Attempt 1: History
-            df = stock.history(period="1y")
-            
-            # Attempt 2: Fallback to download if empty
-            if df.empty or len(df) < 5:
-                df = yf.download(ticker, period="1y", progress=False, ignore_tz=True)
-            
-            # If still empty, return None
-            if df.empty:
-                return None, None
-
-            # Fetch Info (safely)
-            try:
-                info = stock.info
-            except:
-                info = {} # Fallback if info fails but price works
-
-            return df, info
-
-        except Exception:
-            return None, None
-
-    # --- UPDATED SCANNER ENGINE ---
-    def scan_market_safe(tickers):
-        results = []
-        progress_text = "SCANNING NETWORK..."
-        my_bar = st.progress(0, text=progress_text)
-        total = len(tickers)
-        
-        for idx, t in enumerate(tickers):
-            try:
-                my_bar.progress(int((idx + 1) / total * 100), text=f"ACCESSING {t} NODE...")
-                
-                # --- CHANGED: Use the cached function instead of raw yf calls ---
-                df, info = fetch_ticker_data(t)
-                
-                if df is None or df.empty:
-                    continue
-                
-                # Timezone cleanup
-                if df.index.tz is not None: df.index = df.index.tz_localize(None)
-
-                # Indicators
-                df = calculate_indicators(df)
-                curr = df['Close'].iloc[-1]
-                prev = df['Close'].iloc[-2]
-                chg = ((curr - prev)/prev)*100
-                rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns else 50
-                
-                # Verdict
-                ma50 = df['Close'].rolling(50).mean().iloc[-1]
-                verdict = "HOLD"
-                reasons = [] 
-                
-                if curr > ma50:
-                    reasons.append(f"✓ Price (${curr:.2f}) > 50MA -> Bullish Trend")
-                    if rsi < 70: verdict = "BUY"
-                else:
-                    reasons.append(f"✗ Price (${curr:.2f}) < 50MA -> Bearish Trend")
-                    if rsi > 70: verdict = "SELL"
-                
-                if rsi < 30: 
-                    verdict = "STRONG BUY"
-                    reasons.append(f"✓ RSI ({rsi:.0f}) is Oversold -> Potential Bounce")
-                elif rsi > 70:
-                    verdict = "SELL"
-                    reasons.append(f"✗ RSI ({rsi:.0f}) is Overbought -> Pullback Risk")
-                
-                # Sniper Score
-                score = 50
-                if verdict == "BUY": score += 20
-                if verdict == "STRONG BUY": score += 35
-                if rsi < 30: score += 20
-                
-                vol_mean = df['Volume'].rolling(50).mean().iloc[-1]
-                rvol = df['Volume'].iloc[-1] / vol_mean if vol_mean > 0 else 1.0
-                if rvol > 1.5: 
-                    score += 10
-                    reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
-                
-                # Info
-                pe = info.get('trailingPE', None)
-                bubble = "NO"
-                if pe and pe > 35: 
-                    bubble = "🚨 YES"
-                    score -= 20
-                    reasons.append("⚠️ Bubble Alert: High P/E")
-                
-                peg = info.get('pegRatio', 'N/A')
-                target_price = info.get('targetMeanPrice', 'N/A')
-                rec_key = info.get('recommendationKey', 'N/A')
-                if isinstance(rec_key, str):
-                    consensus = rec_key.upper().replace('_', ' ')
-                else:
-                    consensus = "N/A"
-                
-                # NEWS HANDLING (GOOGLE NEWS INTEGRATION)
-                news_items = get_google_news(t)
-                ai_summary, valid_news = generate_ai_summary(news_items)
-                
-                results.append({
-                    "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
-                    "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, 
-                    "History": df, "Info": info, "News": valid_news, "Reasons": reasons,
-                    "TargetPrice": target_price, "Consensus": consensus,
-                    "AISummary": ai_summary
-                })
-            except Exception:
-                continue
-            
-        my_bar.empty()
-        return results
 
     # --- MAIN INTERFACE ---
     with st.expander("ℹ️ HOW TO READ THE DATA (USER GUIDE)", expanded=False):
