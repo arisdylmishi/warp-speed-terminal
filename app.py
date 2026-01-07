@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import hashlib
 import yfinance as yf
+from yahooquery import Ticker as YQTicker # <--- THE FIX
 import finnhub
 import pandas as pd
 import numpy as np
@@ -463,92 +464,101 @@ def get_spy_data():
     except: return None
 
 # ==============================================================
-# --- FINAL PRODUCTION DATA FETCHER (RESILIENT) ---
+# --- HYBRID DATA FETCHER (YFINANCE + YAHOOQUERY) ---
 # ==============================================================
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
     """
-    STRATEGY:
-    1. YFinance for everything (Download for price, Ticker for info).
-    2. If Price fails: Use Finnhub Candles.
-    3. If Info fails (blocked): Use Finnhub Profile/Quote (Free endpoints only).
+    1. HISTORY: yfinance (Best for candles)
+    2. FUNDAMENTALS: yahooquery (Best for data/holdings)
+    3. BACKUP: Finnhub (Price only)
     """
     
-    df = None
-    info = {}
-    
-    # --- PART 1: PRICE HISTORY ---
+    # 1. GET PRICE HISTORY (YFINANCE)
     try:
-        df = yf.download(ticker, period="1y", progress=False, ignore_tz=True)
-        if df is None or df.empty or len(df) < 5:
-            raise ValueError("YF Empty")
+        # Use simple download, no custom session (prevents crash)
+        df = yf.download(ticker, period="1y", progress=False)
         
-        # Cleanup
+        # Cleanup MultiIndex (Critical fix)
         if isinstance(df.columns, pd.MultiIndex):
             try: df.columns = df.columns.get_level_values(0)
             except: pass
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+            
+        if df.empty:
+            raise ValueError("Empty Data")
             
     except Exception:
-        # Finnhub Price Fallback
-        try:
-            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
-            if finnhub_key:
-                client = finnhub.Client(api_key=finnhub_key)
-                lookup = "BINANCE:BTCUSDT" if "BTC" in ticker else ticker
-                end = int(time.time())
-                start = end - (365 * 24 * 60 * 60)
-                res = client.stock_candles(lookup, 'D', start, end)
-                if res.get('s') == 'ok':
-                    df = pd.DataFrame({
-                        'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
-                        'Close': res['c'], 'Volume': res['v']
-                    })
-                    df.index = pd.to_datetime(res['t'], unit='s')
-        except: pass
+        # Emergency Backup: Finnhub Price Only
+        return fetch_finnhub_backup(ticker)
 
-    if df is None or df.empty: return None, None
-
-    # --- PART 2: FUNDAMENTALS (Fixing the N/A issue) ---
+    # 2. GET FUNDAMENTALS (YAHOOQUERY)
+    # This library works where yf.Ticker().info fails
+    info = {}
     try:
-        # Try YF first
-        t_obj = yf.Ticker(ticker)
-        info = t_obj.info
+        yq = YQTicker(ticker)
         
-        # If YF returns nothing or garbage, trigger fallback
-        if not info or len(info) < 2 or info.get('regularMarketPrice') is None:
-            raise ValueError("YF Info Blocked")
+        # Fetch multiple modules in one robust request
+        modules = 'summaryDetail defaultKeyStatistics financialData price majorHoldersBreakdown'
+        data = yq.get_modules(modules)
+        
+        if isinstance(data, dict) and ticker in data:
+            d = data[ticker]
+            # safely extract nested dictionaries
+            sum_det = d.get('summaryDetail', {})
+            key_stat = d.get('defaultKeyStatistics', {})
+            fin_dat = d.get('financialData', {})
+            price_dat = d.get('price', {})
             
-    except Exception:
-        # Finnhub Fundamentals Fallback (FREE TIER COMPATIBLE)
-        try:
-            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
-            if finnhub_key:
-                client = finnhub.Client(api_key=finnhub_key)
-                lookup = "BINANCE:BTCUSDT" if "BTC" in ticker else ticker
-                
-                # 1. Profile (Market Cap, Sector)
-                prof = client.company_profile2(symbol=lookup)
-                # 2. Quote (Current Price)
-                quote = client.quote(lookup)
-                
-                # Construct standard info dict
-                info = {
-                    'marketCap': prof.get('marketCapitalization', 0) * 1_000_000,
-                    'trailingPE': 0, # Cannot get real PE on free tier safely
-                    'pegRatio': 0,
-                    'beta': 0,
-                    'dividendYield': 0,
-                    'profitMargins': 0,
-                    'shortRatio': 0,
-                    'targetMeanPrice': 0,
-                    'recommendationKey': 'Hold',
-                    'currentPrice': quote.get('c', 0)
-                }
-                st.toast(f"⚠️ Using Backup Data for {ticker}", icon="🛡️")
-        except:
-            info = {} # Prevent crash if everything fails
-
+            info = {
+                'marketCap': price_dat.get('marketCap', sum_det.get('marketCap')),
+                'trailingPE': sum_det.get('trailingPE'),
+                'pegRatio': key_stat.get('pegRatio'),
+                'beta': sum_det.get('beta'),
+                'dividendYield': sum_det.get('dividendYield'),
+                'profitMargins': fin_dat.get('profitMargins'),
+                'shortRatio': key_stat.get('shortRatio'),
+                'targetMeanPrice': fin_dat.get('targetMeanPrice'),
+                'recommendationKey': fin_dat.get('recommendationKey', 'N/A'),
+                'debtToEquity': fin_dat.get('debtToEquity'),
+                'returnOnEquity': fin_dat.get('returnOnEquity'),
+                'freeCashflow': fin_dat.get('freeCashflow')
+            }
+    except Exception as e:
+        print(f"YahooQuery Failed: {e}")
+        # Info stays empty, but chart still works
+        
     return df, info
+
+def fetch_finnhub_backup(ticker):
+    """Fallback if Yahoo is completely dead"""
+    try:
+        finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+        if not finnhub_key: return None, None
+        
+        finnhub_client = finnhub.Client(api_key=finnhub_key)
+        lookup = "BINANCE:BTCUSDT" if "BTC" in ticker else ticker
+        
+        # Get Candles
+        end = int(time.time())
+        start = end - (365 * 24 * 60 * 60)
+        res = finnhub_client.stock_candles(lookup, 'D', start, end)
+        
+        if res.get('s') != 'ok': return None, None
+        
+        df = pd.DataFrame({
+            'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
+            'Close': res['c'], 'Volume': res['v']
+        })
+        df.index = pd.to_datetime(res['t'], unit='s')
+        
+        # We can't get deep fundamentals on free tier, return 0s to prevent app crash
+        info = {'marketCap': 0, 'trailingPE': 0}
+        st.toast(f"⚠️ Using Finnhub Backup for {ticker}", icon="🛡️")
+        return df, info
+    except:
+        return None, None
 
 def scan_market_safe(tickers):
     results = []
@@ -1152,20 +1162,22 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            try: 
-                ticker_obj = yf.Ticker(sel_t)
-                holders = ticker_obj.institutional_holders
-                if holders is None or holders.empty: 
-                    holders = ticker_obj.major_holders
+            try:
+                # Use YahooQuery for holdings (It's free and works)
+                yq = YQTicker(sel_t)
+                # 'institution_ownership' is the endpoint for holdings
+                holders = yq.institution_ownership
                 
-                if holders is not None and not holders.empty: 
-                    # Clean up the table for display
-                    holders = holders.head(10) # Limit to top 10
-                    st.table(holders)
-                else: 
-                    st.info("Institutional data unavailable (Feed restricted).")
-            except Exception as e: 
-                st.info("Institutional data unavailable (Feed restricted).")
+                if holders is not None and not isinstance(holders, dict) and not holders.empty:
+                    # Cleanup columns for display
+                    if 'organization' in holders.columns:
+                        st.table(holders[['organization', 'pctHeld', 'value']].head(10))
+                    else:
+                        st.table(holders.head(10))
+                else:
+                    st.info("No institutional data available.")
+            except Exception:
+                st.info("🔒 Data Feed Restricted for Holdings.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
