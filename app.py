@@ -218,6 +218,28 @@ STRIPE_LINKS = {
     "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
 }
 
+def safe_float(val):
+    """Converts strings/mixed data to pure floats for calculations"""
+    if val is None: return 0.0
+    if isinstance(val, (int, float)): return float(val)
+    if isinstance(val, str):
+        val = val.strip().replace(',', '').replace('%', '')
+        if val == '-' or val == '': return 0.0
+        # Handle B/M/K suffix
+        multi = 1.0
+        if val.endswith('B'): 
+            multi = 1e9; val = val[:-1]
+        elif val.endswith('M'): 
+            multi = 1e6; val = val[:-1]
+        elif val.endswith('K'): 
+            multi = 1e3; val = val[:-1]
+        elif val.endswith('T'): 
+            multi = 1e12; val = val[:-1]
+            
+        try: return float(val) * multi
+        except: return 0.0
+    return 0.0
+
 def get_google_news(ticker):
     try:
         url = f"https://news.google.com/rss/search?q={ticker}+stock+news&hl=en-US&gl=US&ceid=US:en"
@@ -423,6 +445,7 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
 def format_large_number(num):
     if not num or isinstance(num, str): return "N/A"
     try:
+        num = safe_float(num)
         if num >= 1e12: return f"${num/1e12:.2f}T"
         if num >= 1e9: return f"${num/1e9:.2f}B"
         if num >= 1e6: return f"${num/1e6:.2f}M"
@@ -467,17 +490,17 @@ def fetch_finviz_data(ticker):
                 val = str(row[i+1])
                 data[key] = val
         
-        # Normalize to our keys
+        # Normalize to our keys with safe_float conversion
         info = {
-            'marketCap': data.get('Market Cap', '0').replace('B', '000000000').replace('M', '000000').replace('.', ''),
-            'trailingPE': data.get('P/E', 0),
-            'pegRatio': data.get('PEG', 0),
-            'beta': data.get('Beta', 0),
-            'dividendYield': data.get('Dividend %', '0%').replace('%', ''),
-            'profitMargins': data.get('Profit Margin', '0%').replace('%', ''),
-            'shortRatio': data.get('Short Float', '0%').replace('%', ''),
-            'targetMeanPrice': data.get('Target Price', 0),
-            'recommendationKey': 'Hold' # Finviz uses numbers (1-5), simplified here
+            'marketCap': safe_float(data.get('Market Cap')),
+            'trailingPE': safe_float(data.get('P/E')),
+            'pegRatio': safe_float(data.get('PEG')),
+            'beta': safe_float(data.get('Beta')),
+            'dividendYield': safe_float(data.get('Dividend %')) / 100, # Convert 1.5% to 0.015
+            'profitMargins': safe_float(data.get('Profit Margin')) / 100,
+            'shortRatio': safe_float(data.get('Short Float')) / 100,
+            'targetMeanPrice': safe_float(data.get('Target Price')),
+            'recommendationKey': 'Hold'
         }
         return info
     except Exception as e:
@@ -626,12 +649,7 @@ def scan_market_safe(tickers):
                 score += 10
                 reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
             
-            pe = info.get('trailingPE', None)
-            
-            # SAFE CONVERSION FOR P/E (Finviz returns strings)
-            try: pe = float(pe)
-            except: pe = 0
-                
+            pe = info.get('trailingPE', 0) # SAFE DEFAULT
             bubble = "NO"
             if pe and pe > 35: 
                 bubble = "🚨 YES"
@@ -1140,10 +1158,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Market Cap", format_large_number(i.get('marketCap')))
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
-            c2.metric("Dividend Yield", f"{i.get('dividendYield', 0)*100:.2f}%" if i.get('dividendYield') else '-')
+            
+            # SAFE DISPLAY FOR PERCENTAGES (Prevents Crashes)
+            div = i.get('dividendYield', 0)
+            pm = i.get('profitMargins', 0)
+            roe = i.get('returnOnEquity', 0)
+            
+            c2.metric("Dividend Yield", f"{div*100:.2f}%" if div else '-')
             c2.metric("PEG Ratio", i.get('pegRatio', '-'))
-            c3.metric("Profit Margin", f"{i.get('profitMargins', 0)*100:.2f}%" if i.get('profitMargins') else '-')
-            c3.metric("ROE", f"{i.get('returnOnEquity', 0)*100:.2f}%" if i.get('returnOnEquity') else '-')
+            c3.metric("Profit Margin", f"{pm*100:.2f}%" if pm else '-')
+            c3.metric("ROE", f"{roe*100:.2f}%" if roe else '-')
             c4.metric("Free Cash Flow", format_large_number(i.get('freeCashflow')))
             c4.metric("Debt/Equity", i.get('debtToEquity', '-'))
             
@@ -1184,7 +1208,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     else:
                         st.table(holders.head(10))
                 else: 
-                    st.info("No institutional data available via API.")
+                    st.info("Institutional data unavailable (Feed restricted).")
             except Exception as e: 
                 st.info("Institutional data unavailable (Feed restricted).")
 
