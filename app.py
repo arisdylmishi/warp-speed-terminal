@@ -219,7 +219,7 @@ STRIPE_LINKS = {
 }
 
 def safe_float(val):
-    """Converts strings/mixed data to pure floats for calculations"""
+    """Safety Shield: Forces strings/mixed data to float to prevent app crash"""
     if val is None: return 0.0
     if isinstance(val, (int, float)): return float(val)
     if isinstance(val, str):
@@ -504,7 +504,7 @@ def fetch_finviz_data(ticker):
         }
         return info
     except Exception as e:
-        print(f"Finviz Scraping Failed: {e}")
+        # Silently fail so main app doesnt crash
         return {}
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -567,6 +567,7 @@ def fetch_ticker_data(ticker):
     except: pass
 
     # Provider 2: Finviz (If YahooQuery missed keys)
+    # Only run if P/E is missing to save time
     if not info.get('trailingPE'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
@@ -1160,9 +1161,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
             
             # SAFE DISPLAY FOR PERCENTAGES (Prevents Crashes)
-            div = i.get('dividendYield', 0)
-            pm = i.get('profitMargins', 0)
-            roe = i.get('returnOnEquity', 0)
+            div = safe_float(i.get('dividendYield', 0))
+            pm = safe_float(i.get('profitMargins', 0))
+            roe = safe_float(i.get('returnOnEquity', 0))
             
             c2.metric("Dividend Yield", f"{div*100:.2f}%" if div else '-')
             c2.metric("PEG Ratio", i.get('pegRatio', '-'))
@@ -1208,7 +1209,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     else:
                         st.table(holders.head(10))
                 else: 
-                    st.info("Institutional data unavailable (Feed restricted).")
+                    st.info("No institutional data available via API.")
             except Exception as e: 
                 st.info("Institutional data unavailable (Feed restricted).")
 
