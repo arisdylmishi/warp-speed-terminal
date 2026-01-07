@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import hashlib
 import yfinance as yf
+import finnhub  # <--- NEW IMPORT
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -461,52 +462,94 @@ def get_spy_data():
         return spy
     except: return None
 
-# --- ROBUST DATA FETCHER ---
+# --- ROBUST DATA FETCHER (WITH FALLBACK LOGIC) ---
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
     """
-    Fetches history and info with caching to prevent IP bans.
-    Aggressively flattens columns to fix 'No Valid Data' errors.
+    1. Tries yfinance (Free/Unlimited).
+    2. If blocked, falls back to Finnhub (Free/Limit 60/min).
+    3. Returns standard dataframe and info dict.
     """
+    
+    # --- PHASE 1: TRY YFINANCE ---
     try:
-        # Create a session with browser headers
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
         })
 
         stock = yf.Ticker(ticker, session=session)
-        
-        # 1. Try history
         df = stock.history(period="1y")
         
-        # 2. If empty, try simple download
+        # If yf returns empty, it might be blocked. Raise error to trigger fallback.
         if df.empty or len(df) < 5:
+            # Attempt direct download before giving up
             df = yf.download(ticker, period="1y", progress=False)
         
-        # If still empty
         if df.empty:
-            return None, None
+            raise ValueError("YF Empty Data")
 
-        # 3. CRITICAL: FLATTEN MULTI-INDEX (Fixes the yfinance 0.2.x bug)
+        # Cleanup YF Data
         if isinstance(df.columns, pd.MultiIndex):
             try: df.columns = df.columns.get_level_values(0)
             except: pass
-            
-        # 4. REMOVE TIMEZONE
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
 
-        # 5. FETCH INFO
-        try:
-            info = stock.info
-        except:
-            info = {} 
-
+        info = stock.info
+        
+        # If we got here, YF worked.
         return df, info
 
-    except Exception:
-        return None, None
+    except Exception as e:
+        # --- PHASE 2: FALLBACK TO FINNHUB ---
+        # Note: Set your key in .streamlit/secrets.toml or replace here
+        try:
+            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "YOUR_FINNHUB_KEY") 
+            finnhub_client = finnhub.Client(api_key=finnhub_key)
+            
+            # 1. Get Candles (History)
+            # Calculate timestamps for "1 year ago" to "now"
+            end = int(time.time())
+            start = end - (365 * 24 * 60 * 60)
+            
+            res = finnhub_client.stock_candles(ticker, 'D', start, end)
+            
+            if res['s'] != 'ok':
+                return None, None
+                
+            # Convert Finnhub JSON to Pandas DataFrame (Matching YF format)
+            df = pd.DataFrame({
+                'Open': res['o'],
+                'High': res['h'],
+                'Low': res['l'],
+                'Close': res['c'],
+                'Volume': res['v']
+            })
+            # Convert Unix timestamp to DateTime
+            df.index = pd.to_datetime(res['t'], unit='s')
+            
+            # 2. Get Info (Profile)
+            profile = finnhub_client.company_profile2(symbol=ticker)
+            metrics = finnhub_client.company_basic_financials(symbol=ticker, metric='all')
+            
+            # Map Finnhub data to the keys your app expects from YF
+            info = {
+                'marketCap': (profile.get('marketCapitalization', 0) * 1000000), # Finnhub is in Millions
+                'trailingPE': metrics.get('metric', {}).get('pf'), # Price/Earnings
+                'pegRatio': metrics.get('metric', {}).get('peg'),
+                'dividendYield': metrics.get('metric', {}).get('dividendYieldIndicatedAnnual'),
+                'beta': metrics.get('metric', {}).get('beta'),
+                'targetMeanPrice': 0, # Finnhub free doesn't always have this
+                'recommendationKey': 'N/A'
+            }
+            
+            print(f"⚠️ YFinance failed. Used Finnhub for {ticker}.")
+            return df, info
+
+        except Exception as fallback_error:
+            print(f"All sources failed for {ticker}: {fallback_error}")
+            return None, None
 
 def scan_market_safe(tickers):
     results = []
