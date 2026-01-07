@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import hashlib
 import yfinance as yf
-from yahooquery import Ticker as YQTicker # <--- THE FIX
+from yahooquery import Ticker as YQTicker
 import finnhub
 import pandas as pd
 import numpy as np
@@ -18,6 +18,7 @@ import requests
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import seaborn as sns
+from bs4 import BeautifulSoup
 
 # ==========================================
 # --- 1. CONFIGURATION & CYBERPUNK THEME ---
@@ -143,31 +144,6 @@ st.markdown("""
             border: 1px solid rgba(0, 255, 65, 0.2);
         }
         
-        .coming-soon {
-            background-color: var(--primary);
-            color: black;
-            padding: 4px 10px;
-            font-weight: 800;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            vertical-align: middle;
-            margin-left: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* TABS */
-        .stTabs [data-baseweb="tab-list"] {
-            border-bottom: 1px solid var(--border);
-        }
-        .stTabs [data-baseweb="tab"] {
-            color: #888;
-        }
-        .stTabs [aria-selected="true"] {
-            color: var(--primary) !important;
-            border-bottom-color: var(--primary) !important;
-        }
-
         /* TABLE FIXES */
         [data-testid="stDataFrame"] {
             border: 1px solid var(--border);
@@ -464,101 +440,132 @@ def get_spy_data():
     except: return None
 
 # ==============================================================
-# --- HYBRID DATA FETCHER (YFINANCE + YAHOOQUERY) ---
+# --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
+
+# --- PROVIDER 3: FINVIZ SCRAPER (The "Nuclear Option") ---
+def fetch_finviz_data(ticker):
+    """Scrapes Finviz table when APIs fail."""
+    try:
+        url = f"https://finviz.com/quote.ashx?t={ticker}"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        req = requests.get(url, headers=headers, timeout=5)
+        
+        if req.status_code != 200: return {}
+        
+        # Parse table with pandas (requires lxml)
+        dfs = pd.read_html(req.text, attrs={'class': 'snapshot-table2'})
+        if not dfs: return {}
+        
+        df = dfs[0]
+        data = {}
+        # Finviz table is weird (col 0 is key, col 1 is val, col 2 is key, col 3 is val...)
+        # We flatten it
+        for i in range(0, len(df.columns), 2):
+            for index, row in df.iterrows():
+                key = str(row[i])
+                val = str(row[i+1])
+                data[key] = val
+        
+        # Normalize to our keys
+        info = {
+            'marketCap': data.get('Market Cap', '0').replace('B', '000000000').replace('M', '000000').replace('.', ''),
+            'trailingPE': data.get('P/E', 0),
+            'pegRatio': data.get('PEG', 0),
+            'beta': data.get('Beta', 0),
+            'dividendYield': data.get('Dividend %', '0%').replace('%', ''),
+            'profitMargins': data.get('Profit Margin', '0%').replace('%', ''),
+            'shortRatio': data.get('Short Float', '0%').replace('%', ''),
+            'targetMeanPrice': data.get('Target Price', 0),
+            'recommendationKey': 'Hold' # Finviz uses numbers (1-5), simplified here
+        }
+        return info
+    except Exception as e:
+        print(f"Finviz Scraping Failed: {e}")
+        return {}
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker):
-    """
-    1. HISTORY: yfinance (Best for candles)
-    2. FUNDAMENTALS: yahooquery (Best for data/holdings)
-    3. BACKUP: Finnhub (Price only)
-    """
+    df = None
+    info = {}
     
-    # 1. GET PRICE HISTORY (YFINANCE)
+    # ----------------------------------------------
+    # 1. PRICE HISTORY (YFinance -> Finnhub)
+    # ----------------------------------------------
     try:
-        # Use simple download, no custom session (prevents crash)
         df = yf.download(ticker, period="1y", progress=False)
-        
-        # Cleanup MultiIndex (Critical fix)
         if isinstance(df.columns, pd.MultiIndex):
-            try: df.columns = df.columns.get_level_values(0)
-            except: pass
+            df.columns = df.columns.get_level_values(0)
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
-            
-        if df.empty:
-            raise ValueError("Empty Data")
-            
-    except Exception:
-        # Emergency Backup: Finnhub Price Only
-        return fetch_finnhub_backup(ticker)
+    except:
+        pass # Fallback below
 
-    # 2. GET FUNDAMENTALS (YAHOOQUERY)
-    # This library works where yf.Ticker().info fails
-    info = {}
+    if df is None or df.empty:
+        # Fallback to Finnhub Price
+        try:
+            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+            if finnhub_key:
+                client = finnhub.Client(api_key=finnhub_key)
+                lookup = "BINANCE:BTCUSDT" if "BTC" in ticker else ticker
+                end = int(time.time())
+                start = end - (365 * 24 * 60 * 60)
+                res = client.stock_candles(lookup, 'D', start, end)
+                if res.get('s') == 'ok':
+                    df = pd.DataFrame({
+                        'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
+                        'Close': res['c'], 'Volume': res['v']
+                    })
+                    df.index = pd.to_datetime(res['t'], unit='s')
+        except: pass
+
+    if df is None or df.empty: return None, None # Give up if no price anywhere
+
+    # ----------------------------------------------
+    # 2. FUNDAMENTALS (YahooQuery -> Finviz -> Finnhub)
+    # ----------------------------------------------
+    
+    # Provider 1: YahooQuery (Best API)
     try:
         yq = YQTicker(ticker)
-        
-        # Fetch multiple modules in one robust request
-        modules = 'summaryDetail defaultKeyStatistics financialData price majorHoldersBreakdown'
+        modules = 'summaryDetail defaultKeyStatistics financialData price'
         data = yq.get_modules(modules)
-        
-        if isinstance(data, dict) and ticker in data:
-            d = data[ticker]
-            # safely extract nested dictionaries
-            sum_det = d.get('summaryDetail', {})
-            key_stat = d.get('defaultKeyStatistics', {})
-            fin_dat = d.get('financialData', {})
-            price_dat = d.get('price', {})
-            
-            info = {
-                'marketCap': price_dat.get('marketCap', sum_det.get('marketCap')),
-                'trailingPE': sum_det.get('trailingPE'),
-                'pegRatio': key_stat.get('pegRatio'),
-                'beta': sum_det.get('beta'),
-                'dividendYield': sum_det.get('dividendYield'),
-                'profitMargins': fin_dat.get('profitMargins'),
-                'shortRatio': key_stat.get('shortRatio'),
-                'targetMeanPrice': fin_dat.get('targetMeanPrice'),
-                'recommendationKey': fin_dat.get('recommendationKey', 'N/A'),
-                'debtToEquity': fin_dat.get('debtToEquity'),
-                'returnOnEquity': fin_dat.get('returnOnEquity'),
-                'freeCashflow': fin_dat.get('freeCashflow')
+        d = data.get(ticker, {})
+        if isinstance(d, dict) and 'summaryDetail' in d:
+             info = {
+                'marketCap': d.get('price', {}).get('marketCap'),
+                'trailingPE': d.get('summaryDetail', {}).get('trailingPE'),
+                'pegRatio': d.get('defaultKeyStatistics', {}).get('pegRatio'),
+                'beta': d.get('summaryDetail', {}).get('beta'),
+                'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
+                'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
+                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'N/A')
             }
-    except Exception as e:
-        print(f"YahooQuery Failed: {e}")
-        # Info stays empty, but chart still works
-        
-    return df, info
+    except: pass
 
-def fetch_finnhub_backup(ticker):
-    """Fallback if Yahoo is completely dead"""
-    try:
-        finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
-        if not finnhub_key: return None, None
-        
-        finnhub_client = finnhub.Client(api_key=finnhub_key)
-        lookup = "BINANCE:BTCUSDT" if "BTC" in ticker else ticker
-        
-        # Get Candles
-        end = int(time.time())
-        start = end - (365 * 24 * 60 * 60)
-        res = finnhub_client.stock_candles(lookup, 'D', start, end)
-        
-        if res.get('s') != 'ok': return None, None
-        
-        df = pd.DataFrame({
-            'Open': res['o'], 'High': res['h'], 'Low': res['l'], 
-            'Close': res['c'], 'Volume': res['v']
-        })
-        df.index = pd.to_datetime(res['t'], unit='s')
-        
-        # We can't get deep fundamentals on free tier, return 0s to prevent app crash
-        info = {'marketCap': 0, 'trailingPE': 0}
-        st.toast(f"⚠️ Using Finnhub Backup for {ticker}", icon="🛡️")
-        return df, info
-    except:
-        return None, None
+    # Provider 2: Finviz (If YahooQuery missed keys)
+    if not info.get('trailingPE'):
+        finviz_data = fetch_finviz_data(ticker)
+        if finviz_data:
+            # Merge Finviz data (Only fill missing)
+            for k, v in finviz_data.items():
+                if k not in info or not info[k]:
+                    info[k] = v
+            st.toast(f"ℹ️ Retrieved Data from Finviz for {ticker}", icon="🕵️")
+
+    # Provider 3: Finnhub (Last Resort)
+    if not info.get('marketCap'):
+        try:
+            finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+            if finnhub_key:
+                client = finnhub.Client(api_key=finnhub_key)
+                prof = client.company_profile2(symbol=ticker)
+                quote = client.quote(ticker)
+                info['marketCap'] = prof.get('marketCapitalization', 0) * 1_000_000
+                info['currentPrice'] = quote.get('c', 0)
+        except: pass
+
+    return df, info
 
 def scan_market_safe(tickers):
     results = []
@@ -620,15 +627,18 @@ def scan_market_safe(tickers):
                 reasons.append(f"⚡ High Volume (RVOL {rvol:.1f})")
             
             pe = info.get('trailingPE', None)
+            
+            # SAFE CONVERSION FOR P/E (Finviz returns strings)
+            try: pe = float(pe)
+            except: pe = 0
+                
             bubble = "NO"
             if pe and pe > 35: 
                 bubble = "🚨 YES"
                 score -= 20
                 reasons.append("⚠️ Bubble Alert: High P/E")
             
-            # --- FIX: ROBUST INFO EXTRACTION ---
             peg = info.get('pegRatio', 'N/A')
-            
             target_price = info.get('targetMeanPrice', info.get('targetHighPrice', 'N/A'))
             
             rec_key = info.get('recommendationKey', info.get('financialCurrency', 'N/A'))
@@ -1162,22 +1172,21 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            try:
-                # Use YahooQuery for holdings (It's free and works)
+            try: 
+                # Use YahooQuery for holdings (Works when yfinance is blocked)
                 yq = YQTicker(sel_t)
-                # 'institution_ownership' is the endpoint for holdings
                 holders = yq.institution_ownership
                 
-                if holders is not None and not isinstance(holders, dict) and not holders.empty:
-                    # Cleanup columns for display
+                if holders is not None and not isinstance(holders, dict) and not holders.empty: 
+                    # Clean up the table for display
                     if 'organization' in holders.columns:
                         st.table(holders[['organization', 'pctHeld', 'value']].head(10))
                     else:
                         st.table(holders.head(10))
-                else:
-                    st.info("No institutional data available.")
-            except Exception:
-                st.info("🔒 Data Feed Restricted for Holdings.")
+                else: 
+                    st.info("No institutional data available via API.")
+            except Exception as e: 
+                st.info("Institutional data unavailable (Feed restricted).")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
