@@ -224,17 +224,14 @@ def safe_float(val):
     if isinstance(val, (int, float)): return float(val)
     if isinstance(val, str):
         val = val.strip().replace(',', '').replace('%', '').replace('$', '')
-        if val == '-' or val == '' or val == 'N/A': return 0.0
-        # Handle B/M/K suffix
+        if val == '-' or val == '' or val == 'N/A' or val == 'nan': return 0.0
+        
+        # Handle B/M/K/T suffix
         multi = 1.0
-        if val.endswith('B'): 
-            multi = 1e9; val = val[:-1]
-        elif val.endswith('M'): 
-            multi = 1e6; val = val[:-1]
-        elif val.endswith('K'): 
-            multi = 1e3; val = val[:-1]
-        elif val.endswith('T'): 
-            multi = 1e12; val = val[:-1]
+        if val.endswith('B'): multi = 1e9; val = val[:-1]
+        elif val.endswith('M'): multi = 1e6; val = val[:-1]
+        elif val.endswith('K'): multi = 1e3; val = val[:-1]
+        elif val.endswith('T'): multi = 1e12; val = val[:-1]
             
         try: return float(val) * multi
         except: return 0.0
@@ -463,15 +460,15 @@ def get_spy_data():
     except: return None
 
 # ==============================================================
-# --- 6-PROVIDER DATA AGGREGATOR (CASCADE STRATEGY) ---
+# --- OMNI-CHANNEL DATA AGGREGATOR (WITH CONSENSUS HUNTER) ---
 # ==============================================================
 
 def fetch_finviz_data(ticker):
-    """PROVIDER 2: FINVIZ SCRAPER (High Risk, High Reward for Targets/Insider)"""
+    """Scrapes Finviz table when APIs fail."""
     try:
         url = f"https://finviz.com/quote.ashx?t={ticker}"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        req = requests.get(url, headers=headers, timeout=3)
+        req = requests.get(url, headers=headers, timeout=5)
         if req.status_code != 200: return {}
         
         dfs = pd.read_html(req.text, attrs={'class': 'snapshot-table2'})
@@ -485,25 +482,62 @@ def fetch_finviz_data(ticker):
                 val = str(row[i+1])
                 data[key] = val
         
+        # Parse Finviz Recom (1=Strong Buy, 5=Sell)
+        recom_num = safe_float(data.get('Recom', '3.0'))
+        recom_text = "Hold"
+        if recom_num <= 1.5: recom_text = "Strong Buy"
+        elif recom_num <= 2.5: recom_text = "Buy"
+        elif recom_num >= 4.5: recom_text = "Sell"
+        elif recom_num >= 3.5: recom_text = "Underperform"
+        
         return {
-            'marketCap': data.get('Market Cap'),
-            'trailingPE': data.get('P/E'),
-            'pegRatio': data.get('PEG'),
-            'beta': data.get('Beta'),
-            'dividendYield': data.get('Dividend %'),
-            'profitMargins': data.get('Profit Margin'),
-            'shortRatio': data.get('Short Float'),
-            'targetMeanPrice': data.get('Target Price'),
-            'recommendationKey': 'Hold'
+            'marketCap': safe_float(data.get('Market Cap')),
+            'trailingPE': safe_float(data.get('P/E')),
+            'pegRatio': safe_float(data.get('PEG')),
+            'beta': safe_float(data.get('Beta')),
+            'dividendYield': safe_float(data.get('Dividend %')) / 100, 
+            'profitMargins': safe_float(data.get('Profit Margin')) / 100,
+            'shortRatio': safe_float(data.get('Short Float')) / 100,
+            'targetMeanPrice': safe_float(data.get('Target Price')),
+            'recommendationKey': recom_text
         }
     except: return {}
+
+def fetch_finnhub_consensus(ticker):
+    """Gets Consensus from Finnhub Free Tier"""
+    try:
+        finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+        if not finnhub_key: return "N/A"
+        client = finnhub.Client(api_key=finnhub_key)
+        
+        # Crypto check
+        if "BTC" in ticker: return "N/A (Crypto)"
+        
+        res = client.recommendation_trends(ticker)
+        if not res: return "N/A"
+        
+        # Get latest data point
+        latest = res[0]
+        
+        # Determine winner
+        counts = {
+            'Strong Buy': latest.get('strongBuy', 0),
+            'Buy': latest.get('buy', 0),
+            'Hold': latest.get('hold', 0),
+            'Sell': latest.get('sell', 0)
+        }
+        winner = max(counts, key=counts.get)
+        return winner
+    except: return "N/A"
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker, period="1y"):
     df = None
     info = {}
     
-    # --- STEP 1: PRICE HISTORY (YFinance / Finnhub) ---
+    # ----------------------------------------------
+    # 1. PRICE HISTORY (YFinance -> Finnhub)
+    # ----------------------------------------------
     try:
         # Map period string
         valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
@@ -514,7 +548,8 @@ def fetch_ticker_data(ticker, period="1y"):
             df.columns = df.columns.get_level_values(0)
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
-    except: pass
+    except:
+        pass # Fallback below
 
     if df is None or df.empty:
         # Finnhub Backup
@@ -536,7 +571,9 @@ def fetch_ticker_data(ticker, period="1y"):
 
     if df is None or df.empty: return None, None
 
-    # --- STEP 2: FUNDAMENTALS (Cascade: YahooQuery -> Finviz -> Finnhub) ---
+    # ----------------------------------------------
+    # 2. FUNDAMENTALS (Cascade: YahooQuery -> Finviz -> Finnhub)
+    # ----------------------------------------------
     
     # 2.1 YahooQuery (Primary)
     try:
@@ -550,22 +587,26 @@ def fetch_ticker_data(ticker, period="1y"):
                 'beta': d.get('summaryDetail', {}).get('beta'),
                 'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
                 'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
-                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'Hold'),
+                'recommendationKey': d.get('financialData', {}).get('recommendationKey'),
                 'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
-                'sector': d.get('assetProfile', {}).get('sector', '-'),
-                'industry': d.get('assetProfile', {}).get('industry', '-')
+                'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
+                'industry': d.get('assetProfile', {}).get('industry', 'N/A')
             }
     except: pass
 
     # 2.2 Finviz (Secondary - Fill Gaps)
-    if not info.get('trailingPE'):
+    # We check if key metrics are missing
+    if not info.get('trailingPE') or not info.get('recommendationKey'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
             for k, v in finviz_data.items():
                 if k not in info or not info[k]:
-                    info[k] = safe_float(v)
+                    info[k] = v
 
     # 2.3 Finnhub (Tertiary - Backup & Crypto)
+    if not info.get('recommendationKey') or info.get('recommendationKey') == 'N/A':
+        info['recommendationKey'] = fetch_finnhub_consensus(ticker)
+
     try:
         finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
         if finnhub_key:
@@ -578,14 +619,11 @@ def fetch_ticker_data(ticker, period="1y"):
                 info['marketCap'] = prof.get('marketCapitalization', 0) * 1_000_000
             if not info.get('sector'):
                 info['sector'] = prof.get('finnhubIndustry', '-')
+            if not info.get('longBusinessSummary') or info.get('longBusinessSummary') == 'Description Unavailable':
+                info['longBusinessSummary'] = f"A company in the {prof.get('finnhubIndustry', 'Market')} sector."
             
             info['currentPrice'] = quote.get('c', 0)
     except: pass
-
-    # 2.4 Calculated Fallback (If P/E still missing)
-    if not info.get('trailingPE') and info.get('currentPrice'):
-        # Try to guess based on history (Very rough, but better than 0)
-        pass 
 
     return df, info
 
@@ -652,10 +690,10 @@ def scan_market_safe(tickers, period="1y"):
                 score -= 20
                 reasons.append("⚠️ Bubble Alert: High P/E")
             
-            # --- FIX: Ensure fields exist ---
             peg = safe_float(info.get('pegRatio'))
             target_price = safe_float(info.get('targetMeanPrice'))
-            rec_key = info.get('recommendationKey', 'N/A')
+            rec_key = str(info.get('recommendationKey', 'N/A')).title()
+            if rec_key == 'None' or rec_key == '0': rec_key = "N/A"
             
             news_items = get_google_news(t)
             ai_summary, valid_news = generate_ai_summary(news_items)
@@ -1204,19 +1242,32 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
             try: 
-                # Use YahooQuery for holdings (Works when yfinance is blocked)
+                # YahooQuery Institutional Ownership Check
                 yq = YQTicker(sel_t)
                 holders = yq.institution_ownership
                 
-                if holders is not None and not isinstance(holders, dict) and not holders.empty: 
-                    # Clean up the table for display
+                # Check for dataframe validity
+                if holders is not None and isinstance(holders, pd.DataFrame) and not holders.empty:
+                    # Cleanup columns for display
                     if 'organization' in holders.columns:
-                        st.table(holders[['organization', 'pctHeld', 'value']].head(10))
+                        display_df = holders[['organization', 'pctHeld', 'value']].head(10)
+                        # Rename for cleaner UI
+                        display_df.columns = ['Organization', '% Held', 'Value']
+                        st.table(display_df)
                     else:
                         st.table(holders.head(10))
+                
+                # Check for dict validity (sometimes yq returns dict)
+                elif isinstance(holders, dict):
+                     # Try to parse if it's a dict containing a dataframe or list
+                     if sel_t in holders and isinstance(holders[sel_t], pd.DataFrame):
+                         st.table(holders[sel_t].head(10))
+                     else:
+                         st.info("No specific holdings data found in API response.")
                 else: 
                     st.info("No institutional data available via API.")
             except Exception as e: 
+                # Graceful degradation - just show the message, don't crash
                 st.info("Institutional data unavailable (Feed restricted).")
 
     elif not run_scan:
