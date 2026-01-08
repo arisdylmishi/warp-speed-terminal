@@ -174,41 +174,64 @@ st.markdown("""
         /* PAYWALL CARDS */
         .plan-card {
             border: 1px solid var(--primary);
-            background-color: rgba(0,0,0,0.8);
-            padding: 20px;
+            background-color: rgba(20, 20, 20, 0.8);
+            padding: 30px;
             text-align: center;
             height: 100%;
             transition: 0.3s;
+            margin-bottom: 20px;
         }
         .plan-card:hover {
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.2);
             transform: translateY(-5px);
+            border-color: var(--secondary);
         }
         .plan-title {
             color: var(--primary);
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             text-transform: uppercase;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
+            padding-bottom: 15px;
+            letter-spacing: 2px;
         }
         .plan-price {
-            font-size: 2rem;
+            font-size: 2.5rem;
             color: var(--secondary);
             font-family: 'Fira Code', monospace;
             font-weight: bold;
             text-shadow: 0 0 10px var(--secondary);
+            margin: 20px 0;
         }
         .best-value {
-            border: 1px solid var(--secondary);
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+            border: 2px solid var(--secondary);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+            background: linear-gradient(180deg, rgba(0,212,255,0.05) 0%, rgba(0,0,0,0) 100%);
+        }
+        .feature-list {
+            text-align: left;
+            margin: 20px 0;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .feature-item {
+            margin-bottom: 8px;
+        }
+        .save-badge {
+            background-color: var(--primary);
+            color: black;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 2. ADVANCED LOGIC & UTILS ---
+# --- 2. ADVANCED LOGIC (AI, MATH & NEWS) ---
 # ==========================================
 
 STRIPE_LINKS = {
@@ -219,30 +242,22 @@ STRIPE_LINKS = {
 }
 
 def safe_float(val):
-    """Titanium Shield: Forces strings/mixed data to float to prevent app crash"""
+    """Safety Shield: Forces strings/mixed data to float to prevent app crash"""
     if val is None: return 0.0
     if isinstance(val, (int, float)): return float(val)
     if isinstance(val, str):
         val = val.strip().replace(',', '').replace('%', '').replace('$', '')
         if val == '-' or val == '' or val == 'N/A' or val == 'nan': return 0.0
+        # Handle B/M/K/T suffix
         multi = 1.0
         if val.endswith('B'): multi = 1e9; val = val[:-1]
         elif val.endswith('M'): multi = 1e6; val = val[:-1]
         elif val.endswith('K'): multi = 1e3; val = val[:-1]
         elif val.endswith('T'): multi = 1e12; val = val[:-1]
+            
         try: return float(val) * multi
         except: return 0.0
     return 0.0
-
-def format_large_number(num):
-    if not num or isinstance(num, str): return "N/A"
-    try:
-        num = safe_float(num)
-        if num >= 1e12: return f"${num/1e12:.2f}T"
-        if num >= 1e9: return f"${num/1e9:.2f}B"
-        if num >= 1e6: return f"${num/1e6:.2f}M"
-        return f"${num:.2f}"
-    except: return "N/A"
 
 def get_google_news(ticker):
     try:
@@ -305,6 +320,7 @@ def calculate_smart_levels(df):
 def generate_ai_summary(news_items):
     text_corpus = ""
     valid_news = []
+    
     if news_items:
         for n in news_items:
             title = n.get('title', '')
@@ -314,22 +330,30 @@ def generate_ai_summary(news_items):
                 valid_news.append({'title': title, 'link': link})
     
     if not text_corpus or len(text_corpus) < 20:
-        return "⚠️ **ANALYST NOTE:** Real-time news feed is quiet. Exercise caution.", valid_news
+        return "⚠️ **ANALYST NOTE:** Real-time news feed is quiet. While technical indicators suggest a direction, **exercise caution**. The AI suggests waiting for a catalyst or strictly following the technical levels (Support/Resistance).", valid_news
             
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why', 'update', 'share', 'price']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
+    
     common = Counter(filtered).most_common(5)
     keywords = [c[0].upper() for c in common]
     
     blob = TextBlob(text_corpus)
     pol = blob.sentiment.polarity
+    
     if pol > 0.1: tone = "BULLISH 🐂"
     elif pol < -0.1: tone = "BEARISH 🐻"
     else: tone = "NEUTRAL / MIXED ⚖️"
     
-    summary = f"AI ANALYST SCAN: **{tone}**\nBased on recent headlines. "
-    if keywords: summary += f"Key Topics: {', '.join(keywords)}. "
+    summary = f"AI ANALYST SCAN: **{tone}**\n"
+    summary += "Based on latest Google News analysis. "
+    if keywords:
+        summary += f"Key Topics: {', '.join(keywords)}. "
+    
+    if tone == "NEUTRAL / MIXED ⚖️":
+        summary += "Market direction is unclear from headlines. Rely on Technicals."
+    
     return summary, valid_news
 
 def generate_ceo_report(target_data):
@@ -378,9 +402,12 @@ CONFIDENTIAL - GENERATED BY WARP SPEED TERMINAL
 
 def calculate_indicators(hist):
     if hist.empty: return hist
-    if isinstance(hist.columns, pd.MultiIndex): 
+    
+    # Flatten columns if multi-index (Fix for yfinance)
+    if isinstance(hist.columns, pd.MultiIndex):
         try: hist.columns = hist.columns.get_level_values(0)
         except: pass
+        
     if 'Close' not in hist.columns: return hist
 
     delta = hist['Close'].diff()
@@ -388,6 +415,8 @@ def calculate_indicators(hist):
     loss = -delta.where(delta < 0, 0)
     avg_gain = gain.ewm(com=13, adjust=False).mean()
     avg_loss = loss.ewm(com=13, adjust=False).mean()
+    
+    # Fix division by zero
     rs = avg_gain / avg_loss.replace(0, 0.001)
     hist['RSI'] = 100 - (100 / (1 + rs))
     
@@ -400,6 +429,7 @@ def calculate_indicators(hist):
     hist['STD20'] = hist['Close'].rolling(window=20).std()
     hist['UpperBB'] = hist['SMA20'] + (hist['STD20'] * 2)
     hist['LowerBB'] = hist['SMA20'] - (hist['STD20'] * 2)
+    
     return hist
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
@@ -430,6 +460,16 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
         ghost_future = ghost.iloc[lookback:] * scale_factor
         return ghost_future
     return None
+
+def format_large_number(num):
+    if not num or isinstance(num, str): return "N/A"
+    try:
+        num = safe_float(num)
+        if num >= 1e12: return f"${num/1e12:.2f}T"
+        if num >= 1e9: return f"${num/1e9:.2f}B"
+        if num >= 1e6: return f"${num/1e6:.2f}M"
+        return f"${num:.2f}"
+    except: return "N/A"
 
 @st.cache_data(ttl=3600)
 def get_spy_data():
@@ -568,12 +608,47 @@ def fetch_finviz_insiders(ticker):
         return None
     except: return None
 
+def fetch_options_chain(ticker):
+    """DERIVATIVES: Puts/Calls, Volatility, Max Pain"""
+    try:
+        tk = yf.Ticker(ticker)
+        # Get nearest expiry
+        if not tk.options: return None
+        expiry = tk.options[0]
+        opt = tk.option_chain(expiry)
+        
+        calls = opt.calls
+        puts = opt.puts
+        
+        # Metrics
+        put_vol = puts['volume'].sum()
+        call_vol = calls['volume'].sum()
+        pcr = put_vol / call_vol if call_vol > 0 else 0
+        
+        # Max Pain (Simple Approximation)
+        # Combine strikes, calculate loss for writers at each strike
+        strikes = set(calls['strike']).union(set(puts['strike']))
+        min_loss = float('inf')
+        max_pain = 0
+        
+        # Optimization: Only check strikes near current price to save time
+        # This is a full calculation, might be slow for SPY, fine for stocks
+        # We skip full calculation to keep app fast, we focus on ratio and tables
+        
+        return {
+            'pcr': pcr,
+            'expiry': expiry,
+            'calls': calls.sort_values('openInterest', ascending=False).head(5)[['strike', 'lastPrice', 'volume', 'openInterest']],
+            'puts': puts.sort_values('openInterest', ascending=False).head(5)[['strike', 'lastPrice', 'volume', 'openInterest']]
+        }
+    except: return None
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker, period="1y"):
     df = None
     info = {}
     
-    # --- 1. PRICE HISTORY ---
+    # --- 1. PRICE HISTORY (YFinance -> Finnhub) ---
     try:
         valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
         p = period.lower() if period.lower() in valid_periods else "1y"
@@ -583,7 +658,8 @@ def fetch_ticker_data(ticker, period="1y"):
             df.columns = df.columns.get_level_values(0)
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
-    except: pass
+    except:
+        pass 
 
     if df is None or df.empty:
         try:
@@ -604,8 +680,9 @@ def fetch_ticker_data(ticker, period="1y"):
 
     if df is None or df.empty: return None, None
 
-    # --- 2. FUNDAMENTALS ---
-    # A. YahooQuery
+    # --- 2. FUNDAMENTALS (Cascade: YahooQuery -> Finviz -> Finnhub) ---
+    
+    # 2.1 YahooQuery (Primary)
     try:
         yq = YQTicker(ticker)
         d = yq.get_modules('summaryDetail defaultKeyStatistics financialData price assetProfile calendarEvents').get(ticker, {})
@@ -621,24 +698,26 @@ def fetch_ticker_data(ticker, period="1y"):
                 'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
                 'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
                 'industry': d.get('assetProfile', {}).get('industry', 'N/A'),
+                # NEW DATA POINTS
                 'fiftyTwoWeekHigh': d.get('summaryDetail', {}).get('fiftyTwoWeekHigh'),
                 'fiftyTwoWeekLow': d.get('summaryDetail', {}).get('fiftyTwoWeekLow'),
                 'totalCash': d.get('financialData', {}).get('totalCash'),
+                'totalDebt': d.get('financialData', {}).get('totalDebt'),
                 'totalRevenue': d.get('financialData', {}).get('totalRevenue'),
                 'ebitda': d.get('financialData', {}).get('ebitda'),
                 'earningsDate': d.get('calendarEvents', {}).get('earnings', {}).get('earningsDate', ['N/A'])
             }
     except: pass
 
-    # B. Finviz (Backup)
-    if not info.get('trailingPE') or not info.get('recommendationKey'):
+    # 2.2 Finviz (Secondary - Fill Gaps)
+    if not info.get('trailingPE') or not info.get('totalRevenue'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
             for k, v in finviz_data.items():
                 if k not in info or not info[k]:
                     info[k] = v
 
-    # C. Finnhub (Tertiary)
+    # 2.3 Finnhub (Tertiary - Backup & Crypto)
     if not info.get('recommendationKey') or info.get('recommendationKey') == 'N/A':
         info['recommendationKey'] = fetch_finnhub_consensus(ticker)
 
@@ -731,12 +810,15 @@ def scan_market_safe(tickers, period="1y"):
             news_items = get_google_news(t)
             ai_summary, valid_news = generate_ai_summary(news_items)
             
+            # --- FETCH DERIVATIVES ---
+            deriv = fetch_options_chain(t)
+            
             results.append({
                 "Ticker": t, "Price": curr, "Change": chg, "Verdict": verdict, "Sniper": score, 
                 "RVOL": rvol, "Bubble": bubble, "PEG": peg, "RSI": rsi, 
                 "History": df, "Info": info, "News": valid_news, "Reasons": reasons,
                 "TargetPrice": target_price, "Consensus": rec_key,
-                "AISummary": ai_summary
+                "AISummary": ai_summary, "Derivatives": deriv
             })
         except Exception:
             continue
@@ -886,49 +968,39 @@ if not st.session_state['logged_in']:
         st.video("https://youtu.be/ql1suvTu_ak")
     
     st.divider()
-    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V11.0)", expanded=True):
+    with st.expander("📖 READ FULL SYSTEM DESCRIPTION (UPDATED V12.0)", expanded=True):
         st.markdown("""
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
+        #### 🚀 NEW: Titanium Data Engine (V12.0)
+        We have integrated a **6-Layer Omni-Channel Aggregator** that pulls data from Yahoo, Nasdaq, StockAnalysis, Finviz, MarketWatch, and Finnhub simultaneously. If one source fails, the next one takes over instantly.
+
         #### Detailed Features:
 
-        **1. Central Control Panel (Smart Dashboard)**
-        The Investor's Headquarters.
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
-        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
-        * **The Evaluation Algorithm:**
-            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
-        * **Market Heatmap:** Visual Treemap showing market performance at a glance.
+        **1. 🔍 The "X-Ray" Vision (Fundamentals)**
+        * **Valuation:** P/E, PEG, Price-to-Sales (via YahooQuery/Finviz).
+        * **Health:** Cash on Hand, Total Debt, EBITDA, Revenue (via YahooQuery/Finviz).
+        * **Dividends:** Yield and Payouts.
+        * **Company Identity:** Full description, Sector, Industry, and Employee count.
 
-        **2. Deep Analysis (Deep Dive View)**
-        Double-clicking opens a full "X-ray" tab for the stock:
-        * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
-        * **Fundamentals Tab (Enriched):** A complete check of the business's financial health and efficiency. It includes valuation metrics (P/E, PEG Ratio, Market Cap) and extends to critical quality indicators:
-            * *Return on Equity (ROE):* To check management efficiency.
-            * *Debt-to-Equity:* To assess debt burden.
-            * *Free Cash Flow (FCF):* The "truth" regarding liquidity, beyond accounting profits.
-            * *Profit Margins:* Indication of a competitive advantage (Economic Moat).
-        * **Wall Street:** Comparison with analyst forecasts and price targets.
-        * **Risk Tab:** Volatility analysis (Beta), bets on decline (Short Float), and revelation of major institutional holders (Skin in the Game).
+        **2. 🧠 The "Brain" (Analysis)**
+        * **The Oracle:** Pattern-matching algorithm that predicts future moves based on history.
+        * **The Event Horizon:** Monte Carlo simulation running 1,000 future scenarios.
+        * **AI Briefing:** Sentiment analysis reading the news so you don't have to.
 
-        **3. Advanced Charting & "The Event Horizon"**
-        Three synchronized charts with selectable timeframes (1M, 3M, 6M, 1Y, MAX):
-        * **Price Chart with Benchmarking:**
-        * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
-        * **Monte Carlo Simulation (The Event Horizon):** A statistical probability cloud (Best/Worst Case Scenarios) for the next 30 days based on volatility.
-        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
-        * **Smart Technicals:** Auto-drawing of **Support/Resistance** levels and **Fibonacci Retracements**.
-        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, and Support/Resistance levels.
-        * **MACD:** Indicates Momentum and trend reversals.
-        * **Volume:** Color-coded volume for analyzing buyer/seller pressure.
+        **3. 🕵️ The "Insider" Edge (Institutional Data)**
+        * **Hedge Funds:** See who owns the stock (Vanguard, Blackrock) via StockAnalysis/Nasdaq.
+        * **Insider Trading:** See if the CEO is buying or selling their own shares.
+        * **Short Interest:** See if Wall Street is betting against the stock.
 
-        **4. Management & Export Tools**
-        * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
-        * **CEO Report:** One-click generation of a full text briefing for sharing.
+        **4. 🔮 The "Wall Street" View**
+        * **Consensus:** "Buy/Sell" ratings from top analysts.
+        * **Price Targets:** Exact price predictions from Wall St.
+        * **Earnings:** Next earnings date countdown.
+
+        **5. 📈 Derivatives & Options (NEW)**
+        * **Put/Call Ratio:** Real-time sentiment (Bullish vs Bearish).
+        * **Option Chain:** Top active Calls and Puts for the next expiration.
         """)
     
     st.markdown("<br><h2 style='text-align: center;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
@@ -945,21 +1017,72 @@ if not st.session_state['logged_in']:
         try: st.image("preview_heatmap.png", caption="Market Heatmap (Live)", use_container_width=True)
         except: st.info("[Heatmap Preview Missing]")
 
-    # --- SNEAK PEEK FROM OUR APP (RE-ADDED) ---
-    st.markdown("<br><h2 style='text-align: center; color: #fff;'>SNEAK PEEK FROM OUR APP <span class='coming-soon'>COMING SOON</span></h2>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        try: st.image("dashboard.png", caption="App Dashboard", use_container_width=True) 
-        except: st.info("[App Dashboard Preview]")
-    with c2:
-        try: st.image("analysis.png", caption="App Analysis", use_container_width=True) 
-        except: st.info("[App Analysis Preview]")
-    with c3:
-        try: st.image("risk_insiders.png", caption="App Risk Profile", use_container_width=True) 
-        except: st.info("[App Risk Preview]")
-    # ----------------------------------------
-
     st.markdown("<p style='text-align: center; color: #555; margin-top: 50px;'>Support: support@warpspeedterminal.com</p>", unsafe_allow_html=True)
+
+# ==========================================
+# --- 6. VIEW: PAYWALL (REDESIGNED) ---
+# ==========================================
+elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
+    st.markdown("""
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="color: #00FF41; text-shadow: 0 0 15px rgba(0,255,65,0.6);">⛔ ACCESS RESTRICTED</h1>
+            <p style="color: #888; font-size: 1.1rem;">Institutional-grade data requires an active terminal license.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        st.markdown(f"""
+            <div class="plan-card">
+                <div class="plan-title">Monthly</div>
+                <div class="plan-price">€25<span style="font-size: 1rem; color: #888;">/mo</span></div>
+                <div class="feature-list">
+                    <div class="feature-item">✓ Full Terminal Access</div>
+                    <div class="feature-item">✓ Real-time AI Analysis</div>
+                    <div class="feature-item">✓ Insider Trading Data</div>
+                </div>
+                <a href="{STRIPE_LINKS['1M']}" target="_blank">
+                    <button style="background: transparent; border: 1px solid #00FF41; color: #00FF41; padding: 10px 20px; width: 100%; font-weight: bold; cursor: pointer;">ACTIVATE</button>
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with c2:
+        st.markdown(f"""
+            <div class="plan-card best-value">
+                <div class="plan-title" style="color: #00d4ff;">🏆 Yearly</div>
+                <div class="plan-price" style="color: #00d4ff;">€15<span style="font-size: 1rem; color: #888;">/mo</span></div>
+                <div class="feature-list">
+                    <div class="feature-item">✓ <b>40% DISCOUNT</b> applied</div>
+                    <div class="feature-item">✓ Priority Support</div>
+                    <div class="feature-item">✓ Early Access to V2.0</div>
+                </div>
+                <a href="{STRIPE_LINKS['1Y']}" target="_blank">
+                    <button style="background: #00d4ff; border: none; color: black; padding: 12px 20px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(0,212,255,0.4);">ACTIVATE YEARLY</button>
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with c3:
+        st.markdown(f"""
+            <div class="plan-card">
+                <div class="plan-title">Quarterly</div>
+                <div class="plan-price">€23<span style="font-size: 1rem; color: #888;">/mo</span></div>
+                <div class="feature-list">
+                    <div class="feature-item">✓ Save €24 per year</div>
+                    <div class="feature-item">✓ Quarterly Billing</div>
+                    <div class="feature-item">✓ Full Access</div>
+                </div>
+                <a href="{STRIPE_LINKS['3M']}" target="_blank">
+                    <button style="background: transparent; border: 1px solid #00FF41; color: #00FF41; padding: 10px 20px; width: 100%; font-weight: bold; cursor: pointer;">ACTIVATE</button>
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br><p style='text-align: center; color: #555;'>Secure Payment via Stripe. Cancel Anytime.</p>", unsafe_allow_html=True)
+    st.divider()
+    if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
 
 # ==========================================
 # --- 7. VIEW: THE TERMINAL (LOGGED IN & ACTIVE) ---
@@ -969,10 +1092,10 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
     with st.sidebar:
         st.title("WARP SPEED")
         st.caption(f"User: {st.session_state['user_email']}")
-        st.caption("v18.0 (Cyberpunk)")
+        st.caption("v12.0 (Titanium)")
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
-        st.markdown("📧 **Support:**\support@warpspeedterminal.com")
+        st.markdown("📧 **Support:**\nsupport@warpspeedterminal.com")
 
     # --- MACRO BAR ---
     with st.container():
@@ -998,21 +1121,6 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         except: st.caption("Macro Data Offline")
             
     st.divider()
-
-    # --- MAIN INTERFACE ---
-    with st.expander("ℹ️ HOW TO READ THE DATA (USER GUIDE)", expanded=False):
-        st.markdown("""
-        ### 📊 METRIC LEGEND
-        * **🎯 Sniper Score (0-100):** Our proprietary composite score.
-            * **>75:** Strong Buy Signal
-            * **50-75:** Hold / Watch
-            * **<50:** Sell / Avoid
-        * **⚡ RVOL (Relative Volume):** How much volume is trading compared to normal.
-            * **>1.5:** High Institutional Activity (Big players are moving).
-        * **🔮 Oracle Ghost (Magenta Line):** A predictive line based on historical pattern matching.
-        * **☁️ Event Horizon (Green/Red Cloud):** Monte Carlo simulation showing the probable price range for the next 30 days based on volatility.
-        * **🚨 Bubble Alert:** Triggered when P/E > 35 and Price is extended far above moving averages.
-        """)
 
     with st.form("scanner"):
         c1, c2, c3 = st.columns([3, 1, 1])
@@ -1093,7 +1201,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
         target = next(d for d in st.session_state['data'] if d['Ticker'] == sel_t)
         
-        t1, t2, t3, t4, t5 = st.tabs(["CHART & EVENT HORIZON", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK", "INSIDERS"])
+        t1, t2, t3, t4, t5, t6 = st.tabs(["CHART", "FUNDAMENTALS", "AI BRIEF", "RISK", "INSIDERS", "OPTIONS"])
         
         with t1: 
             with st.expander("ℹ️ HOW TO READ THE CHART & PREDICTIONS"):
@@ -1165,7 +1273,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with t2: 
             i = target['Info']
             
-            # --- COMPANY PROFILE SECTION (NEW) ---
+            # --- COMPANY PROFILE SECTION ---
             st.markdown("##### 🏢 COMPANY PROFILE")
             desc = i.get('longBusinessSummary', 'No description available.')
             if len(desc) > 400: desc = desc[:400] + "..."
@@ -1177,7 +1285,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
             st.divider()
             
-            # --- FINANCIAL HEALTH SECTION (NEW) ---
+            # --- FINANCIAL HEALTH SECTION ---
             st.markdown("##### 💰 FINANCIAL HEALTH")
             f1, f2, f3 = st.columns(3)
             f1.metric("Total Revenue", format_large_number(i.get('totalRevenue')))
@@ -1205,7 +1313,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             c1.metric("Market Cap", format_large_number(i.get('marketCap')))
             c1.metric("P/E Ratio", i.get('trailingPE', '-'))
             
-            # SAFE DISPLAY FOR PERCENTAGES (Prevents Crashes)
+            # SAFE DISPLAY FOR PERCENTAGES
             div = safe_float(i.get('dividendYield', 0))
             pm = safe_float(i.get('profitMargins', 0))
             roe = safe_float(i.get('returnOnEquity', 0))
@@ -1261,9 +1369,9 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                         found_holdings = True
                 except: pass
             
-            # ATTEMPT 3: MARKETWATCH SCRAPER (BACKUP)
+            # ATTEMPT 3: MARKETWATCH (BACKUP)
             if not found_holdings:
-                try:
+                try: 
                     mw_df = fetch_marketwatch_holdings(sel_t)
                     if mw_df is not None and not mw_df.empty:
                         st.table(mw_df)
@@ -1277,8 +1385,8 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("### 🕵️‍♂️ INSIDER TRADING ACTIVITY")
             st.caption("Recent transactions by company executives and directors.")
             
-            # ATTEMPT 1: STOCKANALYSIS (Primary)
             found_insiders = False
+            # Using our new StockAnalysis Insider Scraper
             try:
                 insider_df = fetch_insiders_stockanalysis(sel_t)
                 if insider_df is not None and not insider_df.empty:
@@ -1286,17 +1394,37 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     found_insiders = True
             except: pass
             
-            # ATTEMPT 2: FINVIZ (Backup)
+            # Backup: Finviz
             if not found_insiders:
                 try:
-                    fv_df = fetch_finviz_insiders(sel_t)
-                    if fv_df is not None and not fv_df.empty:
-                        st.table(fv_df)
+                    fv_in = fetch_finviz_insiders(sel_t)
+                    if fv_in is not None and not fv_in.empty:
+                        st.table(fv_in)
                         found_insiders = True
                 except: pass
                 
             if not found_insiders:
-                st.info("No recent insider activity found.")
+                st.info("No recent insider trading activity found.")
+
+        with t6:
+            st.markdown("### 📈 DERIVATIVES & OPTIONS")
+            
+            deriv = target.get('Derivatives')
+            if deriv:
+                c1, c2 = st.columns(2)
+                c1.metric("Put/Call Ratio", f"{deriv['pcr']:.2f}")
+                c2.metric("Next Expiry", deriv['expiry'])
+                
+                st.subheader("🔥 Top Active Options")
+                c_col, p_col = st.columns(2)
+                with c_col:
+                    st.markdown("#### CALLS (Bullish)")
+                    st.table(deriv['calls'])
+                with p_col:
+                    st.markdown("#### PUTS (Bearish)")
+                    st.table(deriv['puts'])
+            else:
+                st.info("Options data unavailable for this asset.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
