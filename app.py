@@ -477,7 +477,6 @@ def fetch_insiders_stockanalysis(ticker):
         dfs = pd.read_html(r.text)
         if dfs:
             df = dfs[0].head(10)
-            # Rename columns to be pretty
             return df
         return None
     except: return None
@@ -510,6 +509,7 @@ def fetch_finviz_data(ticker):
         elif recom_num >= 4.5: recom_text = "Sell"
         elif recom_num >= 3.5: recom_text = "Underperform"
         
+        # Extract Financial Health metrics specifically
         return {
             'marketCap': safe_float(data.get('Market Cap')),
             'trailingPE': safe_float(data.get('P/E')),
@@ -519,7 +519,10 @@ def fetch_finviz_data(ticker):
             'profitMargins': safe_float(data.get('Profit Margin')) / 100,
             'shortRatio': safe_float(data.get('Short Float')) / 100,
             'targetMeanPrice': safe_float(data.get('Target Price')),
-            'recommendationKey': recom_text
+            'recommendationKey': recom_text,
+            'totalRevenue': safe_float(data.get('Sales')), # Revenue
+            'totalCash': safe_float(data.get('Cash/sh')) * safe_float(data.get('Shs Out')), # Approx Cash
+            'ebitda': safe_float(data.get('Income')) # Finviz uses Income mostly
         }
     except: return {}
 
@@ -546,38 +549,25 @@ def fetch_finnhub_consensus(ticker):
         return winner
     except: return "N/A"
 
-def fetch_nasdaq_holdings(ticker):
-    """Layer 2: Secret Nasdaq API for Institutional Holdings"""
+def fetch_stockanalysis_holdings(ticker):
+    """
+    ULTIMATE FALLBACK: Scrapes StockAnalysis.com for holdings.
+    This site is very friendly to scrapers and has good data.
+    """
     try:
-        url = f"https://api.nasdaq.com/api/company/{ticker}/institutional-holdings?limit=10&type=TOTAL&sortColumn=marketValue&sortOrder=DESC"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://www.nasdaq.com',
-            'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/institutional-holdings'
-        }
-        r = requests.get(url, headers=headers, timeout=5)
-        data = r.json()
-        
-        rows = data['data']['institutionalHoldings']['rows']
-        if rows:
-            df = pd.DataFrame(rows)
-            df = df[['ownerName', 'date', 'sharesHeld', 'value']]
-            df.columns = ['Holder', 'Date', 'Shares', 'Value']
-            return df.head(10)
-        return None
-    except: return None
-
-def fetch_marketwatch_holdings(ticker):
-    """Layer 3: MarketWatch Scraper for Holdings"""
-    try:
-        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
+        url = f"https://stockanalysis.com/stocks/{ticker.lower()}/ownership/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        r = requests.get(url, headers=headers, timeout=5)
-        dfs = pd.read_html(r.text)
-        for df in dfs:
-            if 'Name' in df.columns:
-                return df[['Name', 'Recent Activity']].head(10)
+        req = requests.get(url, headers=headers, timeout=5)
+        
+        if req.status_code != 200: return None
+        
+        dfs = pd.read_html(req.text)
+        if dfs:
+            df = dfs[0]
+            # Standardize columns
+            if 'Owner' in df.columns:
+                df = df.rename(columns={'Owner': 'Holder', 'Shares': 'Shares', 'Date': 'Date Reported', 'Value': 'Value'})
+                return df.head(10)
         return None
     except: return None
 
@@ -627,7 +617,6 @@ def fetch_ticker_data(ticker, period="1y"):
     # 2.1 YahooQuery (Primary)
     try:
         yq = YQTicker(ticker)
-        # We ask for EVERYTHING possible
         d = yq.get_modules('summaryDetail defaultKeyStatistics financialData price assetProfile calendarEvents').get(ticker, {})
         if isinstance(d, dict) and 'summaryDetail' in d:
              info = {
@@ -653,7 +642,8 @@ def fetch_ticker_data(ticker, period="1y"):
     except: pass
 
     # 2.2 Finviz (Secondary - Fill Gaps)
-    if not info.get('trailingPE') or not info.get('recommendationKey'):
+    # Checks if key metrics (especially Financial Health) are missing
+    if not info.get('totalRevenue') or not info.get('trailingPE'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
             for k, v in finviz_data.items():
