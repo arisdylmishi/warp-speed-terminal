@@ -463,25 +463,22 @@ def get_spy_data():
 # --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
 
-def fetch_stockanalysis_holdings(ticker):
+def fetch_insiders_stockanalysis(ticker):
     """
-    ULTIMATE FALLBACK: Scrapes StockAnalysis.com for holdings.
-    This site is very friendly to scrapers and has good data.
+    Scrapes StockAnalysis.com for the latest Insider Trading table.
+    Very high success rate compared to Yahoo.
     """
     try:
-        url = f"https://stockanalysis.com/stocks/{ticker.lower()}/ownership/"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        req = requests.get(url, headers=headers, timeout=5)
+        url = f"https://stockanalysis.com/stocks/{ticker.lower()}/insider-trading/"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        r = requests.get(url, headers=headers, timeout=4)
+        if r.status_code != 200: return None
         
-        if req.status_code != 200: return None
-        
-        dfs = pd.read_html(req.text)
+        dfs = pd.read_html(r.text)
         if dfs:
-            df = dfs[0]
-            # Standardize columns
-            if 'Owner' in df.columns:
-                df = df.rename(columns={'Owner': 'Holder', 'Shares': 'Shares', 'Date': 'Date Reported', 'Value': 'Value'})
-                return df.head(10)
+            df = dfs[0].head(10)
+            # Rename columns to be pretty
+            return df
         return None
     except: return None
 
@@ -494,7 +491,6 @@ def fetch_finviz_data(ticker):
         
         if req.status_code != 200: return {}
         
-        # Parse table with pandas (requires lxml)
         dfs = pd.read_html(req.text, attrs={'class': 'snapshot-table2'})
         if not dfs: return {}
         
@@ -506,8 +502,15 @@ def fetch_finviz_data(ticker):
                 val = str(row[i+1])
                 data[key] = val
         
-        # Normalize to our keys with safe_float conversion
-        info = {
+        # Parse Finviz Recom (1=Strong Buy, 5=Sell)
+        recom_num = safe_float(data.get('Recom', '3.0'))
+        recom_text = "Hold"
+        if recom_num <= 1.5: recom_text = "Strong Buy"
+        elif recom_num <= 2.5: recom_text = "Buy"
+        elif recom_num >= 4.5: recom_text = "Sell"
+        elif recom_num >= 3.5: recom_text = "Underperform"
+        
+        return {
             'marketCap': safe_float(data.get('Market Cap')),
             'trailingPE': safe_float(data.get('P/E')),
             'pegRatio': safe_float(data.get('PEG')),
@@ -516,11 +519,9 @@ def fetch_finviz_data(ticker):
             'profitMargins': safe_float(data.get('Profit Margin')) / 100,
             'shortRatio': safe_float(data.get('Short Float')) / 100,
             'targetMeanPrice': safe_float(data.get('Target Price')),
-            'recommendationKey': 'Hold'
+            'recommendationKey': recom_text
         }
-        return info
-    except Exception:
-        return {}
+    except: return {}
 
 def fetch_finnhub_consensus(ticker):
     """Gets Consensus from Finnhub Free Tier"""
@@ -544,6 +545,41 @@ def fetch_finnhub_consensus(ticker):
         winner = max(counts, key=counts.get)
         return winner
     except: return "N/A"
+
+def fetch_nasdaq_holdings(ticker):
+    """Layer 2: Secret Nasdaq API for Institutional Holdings"""
+    try:
+        url = f"https://api.nasdaq.com/api/company/{ticker}/institutional-holdings?limit=10&type=TOTAL&sortColumn=marketValue&sortOrder=DESC"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://www.nasdaq.com',
+            'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/institutional-holdings'
+        }
+        r = requests.get(url, headers=headers, timeout=5)
+        data = r.json()
+        
+        rows = data['data']['institutionalHoldings']['rows']
+        if rows:
+            df = pd.DataFrame(rows)
+            df = df[['ownerName', 'date', 'sharesHeld', 'value']]
+            df.columns = ['Holder', 'Date', 'Shares', 'Value']
+            return df.head(10)
+        return None
+    except: return None
+
+def fetch_marketwatch_holdings(ticker):
+    """Layer 3: MarketWatch Scraper for Holdings"""
+    try:
+        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        r = requests.get(url, headers=headers, timeout=5)
+        dfs = pd.read_html(r.text)
+        for df in dfs:
+            if 'Name' in df.columns:
+                return df[['Name', 'Recent Activity']].head(10)
+        return None
+    except: return None
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker, period="1y"):
@@ -591,7 +627,8 @@ def fetch_ticker_data(ticker, period="1y"):
     # 2.1 YahooQuery (Primary)
     try:
         yq = YQTicker(ticker)
-        d = yq.get_modules('summaryDetail defaultKeyStatistics financialData price assetProfile').get(ticker, {})
+        # We ask for EVERYTHING possible
+        d = yq.get_modules('summaryDetail defaultKeyStatistics financialData price assetProfile calendarEvents').get(ticker, {})
         if isinstance(d, dict) and 'summaryDetail' in d:
              info = {
                 'marketCap': d.get('price', {}).get('marketCap'),
@@ -603,7 +640,15 @@ def fetch_ticker_data(ticker, period="1y"):
                 'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'Hold'),
                 'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
                 'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
-                'industry': d.get('assetProfile', {}).get('industry', 'N/A')
+                'industry': d.get('assetProfile', {}).get('industry', 'N/A'),
+                # NEW DATA POINTS
+                'fiftyTwoWeekHigh': d.get('summaryDetail', {}).get('fiftyTwoWeekHigh'),
+                'fiftyTwoWeekLow': d.get('summaryDetail', {}).get('fiftyTwoWeekLow'),
+                'totalCash': d.get('financialData', {}).get('totalCash'),
+                'totalDebt': d.get('financialData', {}).get('totalDebt'),
+                'totalRevenue': d.get('financialData', {}).get('totalRevenue'),
+                'ebitda': d.get('financialData', {}).get('ebitda'),
+                'earningsDate': d.get('calendarEvents', {}).get('earnings', {}).get('earningsDate', ['N/A'])
             }
     except: pass
 
@@ -1128,7 +1173,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         sel_t = st.selectbox("Select Asset", [d['Ticker'] for d in st.session_state['data']])
         target = next(d for d in st.session_state['data'] if d['Ticker'] == sel_t)
         
-        t1, t2, t3, t4 = st.tabs(["CHART & EVENT HORIZON", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK"])
+        t1, t2, t3, t4, t5 = st.tabs(["CHART & EVENT HORIZON", "FUNDAMENTALS & WALL ST", "AI ANALYST", "RISK", "INSIDERS"])
         
         with t1: 
             with st.expander("ℹ️ HOW TO READ THE CHART & PREDICTIONS"):
@@ -1179,6 +1224,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             fig.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False, title=f"{target['Ticker']} Analysis")
             st.plotly_chart(fig, use_container_width=True)
             
+            # --- 52 WEEK RANGE BAR ---
+            current = safe_float(target['Info'].get('currentPrice', 0))
+            low52 = safe_float(target['Info'].get('fiftyTwoWeekLow', 0))
+            high52 = safe_float(target['Info'].get('fiftyTwoWeekHigh', 0))
+            
+            if low52 > 0 and high52 > 0:
+                pct = (current - low52) / (high52 - low52)
+                st.write(f"**52-Week Range:** ${low52:.2f} — **${current:.2f}** — ${high52:.2f}")
+                st.progress(max(0.0, min(1.0, pct)))
+
             st.markdown("#### 🧠 VERDICT LOGIC")
             reasons = target.get('Reasons', []) 
             if reasons:
@@ -1190,7 +1245,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with t2: 
             i = target['Info']
             
-            # --- COMPANY PROFILE SECTION (NEW) ---
+            # --- COMPANY PROFILE SECTION ---
             st.markdown("##### 🏢 COMPANY PROFILE")
             desc = i.get('longBusinessSummary', 'No description available.')
             if len(desc) > 400: desc = desc[:400] + "..."
@@ -1202,11 +1257,27 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             
             st.divider()
             
+            # --- FINANCIAL HEALTH SECTION (NEW) ---
+            st.markdown("##### 💰 FINANCIAL HEALTH")
+            f1, f2, f3 = st.columns(3)
+            f1.metric("Total Revenue", format_large_number(i.get('totalRevenue')))
+            f2.metric("EBITDA", format_large_number(i.get('ebitda')))
+            f3.metric("Total Cash", format_large_number(i.get('totalCash')))
+            
+            st.divider()
+            
             # --- WALL STREET SECTION ---
             st.markdown("##### 🏦 WALL STREET")
-            w1, w2 = st.columns(2)
+            w1, w2, w3 = st.columns(3)
             w1.metric("Consensus", str(target.get('Consensus', 'N/A')))
             w2.metric("Target Price", f"${safe_float(target.get('TargetPrice', 0)):.2f}")
+            
+            # Show Next Earnings Date
+            edate = i.get('earningsDate', [])
+            if isinstance(edate, list) and len(edate) > 0:
+                next_earn = str(edate[0])[:10] 
+            else: next_earn = "N/A"
+            w3.metric("Next Earnings", next_earn)
             
             st.divider()
             st.markdown("##### 📊 KEY METRICS")
@@ -1270,9 +1341,22 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                         found_holdings = True
                 except: pass
             
-            # ATTEMPT 3: BUSINESS INSIDER SCRAPER
             if not found_holdings:
                 st.info("Institutional data unavailable (Feed restricted).")
+
+        with t5:
+            st.markdown("### 🕵️‍♂️ INSIDER TRADING ACTIVITY")
+            st.caption("Recent transactions by company executives and directors.")
+            
+            # Using our new StockAnalysis Insider Scraper
+            try:
+                insider_df = fetch_insiders_stockanalysis(sel_t)
+                if insider_df is not None and not insider_df.empty:
+                    st.table(insider_df)
+                else:
+                    st.info("No recent insider trading activity found.")
+            except:
+                st.info("Insider data unavailable.")
 
     elif not run_scan:
         st.info("Enter tickers above and press INITIATE SCAN.")
