@@ -225,6 +225,7 @@ def safe_float(val):
     if isinstance(val, str):
         val = val.strip().replace(',', '').replace('%', '').replace('$', '')
         if val == '-' or val == '' or val == 'N/A' or val == 'nan': return 0.0
+        
         # Handle B/M/K/T suffix
         multi = 1.0
         if val.endswith('B'): multi = 1e9; val = val[:-1]
@@ -462,6 +463,28 @@ def get_spy_data():
 # --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
 
+def fetch_stockanalysis_holdings(ticker):
+    """
+    ULTIMATE FALLBACK: Scrapes StockAnalysis.com for holdings.
+    This site is very friendly to scrapers and has good data.
+    """
+    try:
+        url = f"https://stockanalysis.com/stocks/{ticker.lower()}/ownership/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        req = requests.get(url, headers=headers, timeout=5)
+        
+        if req.status_code != 200: return None
+        
+        dfs = pd.read_html(req.text)
+        if dfs:
+            df = dfs[0]
+            # Standardize columns
+            if 'Owner' in df.columns:
+                df = df.rename(columns={'Owner': 'Holder', 'Shares': 'Shares', 'Date': 'Date Reported', 'Value': 'Value'})
+                return df.head(10)
+        return None
+    except: return None
+
 def fetch_finviz_data(ticker):
     """Scrapes Finviz table when APIs fail."""
     try:
@@ -471,6 +494,7 @@ def fetch_finviz_data(ticker):
         
         if req.status_code != 200: return {}
         
+        # Parse table with pandas (requires lxml)
         dfs = pd.read_html(req.text, attrs={'class': 'snapshot-table2'})
         if not dfs: return {}
         
@@ -482,15 +506,8 @@ def fetch_finviz_data(ticker):
                 val = str(row[i+1])
                 data[key] = val
         
-        # Parse Finviz Recom (1=Strong Buy, 5=Sell)
-        recom_num = safe_float(data.get('Recom', '3.0'))
-        recom_text = "Hold"
-        if recom_num <= 1.5: recom_text = "Strong Buy"
-        elif recom_num <= 2.5: recom_text = "Buy"
-        elif recom_num >= 4.5: recom_text = "Sell"
-        elif recom_num >= 3.5: recom_text = "Underperform"
-        
-        return {
+        # Normalize to our keys with safe_float conversion
+        info = {
             'marketCap': safe_float(data.get('Market Cap')),
             'trailingPE': safe_float(data.get('P/E')),
             'pegRatio': safe_float(data.get('PEG')),
@@ -499,9 +516,11 @@ def fetch_finviz_data(ticker):
             'profitMargins': safe_float(data.get('Profit Margin')) / 100,
             'shortRatio': safe_float(data.get('Short Float')) / 100,
             'targetMeanPrice': safe_float(data.get('Target Price')),
-            'recommendationKey': recom_text
+            'recommendationKey': 'Hold'
         }
-    except: return {}
+        return info
+    except Exception:
+        return {}
 
 def fetch_finnhub_consensus(ticker):
     """Gets Consensus from Finnhub Free Tier"""
@@ -525,41 +544,6 @@ def fetch_finnhub_consensus(ticker):
         winner = max(counts, key=counts.get)
         return winner
     except: return "N/A"
-
-def fetch_nasdaq_holdings(ticker):
-    """Layer 2: Secret Nasdaq API for Institutional Holdings"""
-    try:
-        url = f"https://api.nasdaq.com/api/company/{ticker}/institutional-holdings?limit=10&type=TOTAL&sortColumn=marketValue&sortOrder=DESC"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': 'https://www.nasdaq.com',
-            'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/institutional-holdings'
-        }
-        r = requests.get(url, headers=headers, timeout=5)
-        data = r.json()
-        
-        rows = data['data']['institutionalHoldings']['rows']
-        if rows:
-            df = pd.DataFrame(rows)
-            df = df[['ownerName', 'date', 'sharesHeld', 'value']]
-            df.columns = ['Holder', 'Date', 'Shares', 'Value']
-            return df.head(10)
-        return None
-    except: return None
-
-def fetch_marketwatch_holdings(ticker):
-    """Layer 3: MarketWatch Scraper for Holdings"""
-    try:
-        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        r = requests.get(url, headers=headers, timeout=5)
-        dfs = pd.read_html(r.text)
-        for df in dfs:
-            if 'Name' in df.columns:
-                return df[['Name', 'Recent Activity']].head(10)
-        return None
-    except: return None
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker, period="1y"):
@@ -616,7 +600,7 @@ def fetch_ticker_data(ticker, period="1y"):
                 'beta': d.get('summaryDetail', {}).get('beta'),
                 'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
                 'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
-                'recommendationKey': d.get('financialData', {}).get('recommendationKey'),
+                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'Hold'),
                 'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
                 'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
                 'industry': d.get('assetProfile', {}).get('industry', 'N/A')
@@ -1267,35 +1251,27 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            # 1. Try YahooQuery
-            found = False
+            # ATTEMPT 1: STOCKANALYSIS.COM (BEST)
+            found_holdings = False
             try:
-                yq = YQTicker(sel_t)
-                holders = yq.institution_ownership
-                if holders is not None and isinstance(holders, pd.DataFrame) and not holders.empty:
-                    st.table(holders.head(10))
-                    found = True
+                sa_df = fetch_stockanalysis_holdings(sel_t)
+                if sa_df is not None and not sa_df.empty:
+                    st.table(sa_df)
+                    found_holdings = True
             except: pass
             
-            # 2. Try Nasdaq API (Titanium Layer)
-            if not found:
-                try:
-                    df_nas = fetch_nasdaq_holdings(sel_t)
-                    if df_nas is not None and not df_nas.empty:
-                        st.table(df_nas)
-                        found = True
-                except: pass
-                
-            # 3. Try MarketWatch Scraper (Backup)
-            if not found:
-                try:
-                    df_mw = fetch_marketwatch_holdings(sel_t)
-                    if df_mw is not None and not df_mw.empty:
-                        st.table(df_mw)
-                        found = True
+            # ATTEMPT 2: YAHOO QUERY
+            if not found_holdings:
+                try: 
+                    yq = YQTicker(sel_t)
+                    holders = yq.institution_ownership
+                    if holders is not None and isinstance(holders, pd.DataFrame) and not holders.empty:
+                        st.table(holders.head(10))
+                        found_holdings = True
                 except: pass
             
-            if not found:
+            # ATTEMPT 3: BUSINESS INSIDER SCRAPER
+            if not found_holdings:
                 st.info("Institutional data unavailable (Feed restricted).")
 
     elif not run_scan:
