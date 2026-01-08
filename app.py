@@ -174,35 +174,58 @@ st.markdown("""
         /* PAYWALL CARDS */
         .plan-card {
             border: 1px solid var(--primary);
-            background-color: rgba(0,0,0,0.8);
-            padding: 20px;
+            background-color: rgba(20, 20, 20, 0.8);
+            padding: 30px;
             text-align: center;
             height: 100%;
             transition: 0.3s;
+            margin-bottom: 20px;
         }
         .plan-card:hover {
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.2);
             transform: translateY(-5px);
+            border-color: var(--secondary);
         }
         .plan-title {
             color: var(--primary);
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             text-transform: uppercase;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
+            padding-bottom: 15px;
+            letter-spacing: 2px;
         }
         .plan-price {
-            font-size: 2rem;
+            font-size: 2.5rem;
             color: var(--secondary);
             font-family: 'Fira Code', monospace;
             font-weight: bold;
             text-shadow: 0 0 10px var(--secondary);
+            margin: 20px 0;
         }
         .best-value {
-            border: 1px solid var(--secondary);
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+            border: 2px solid var(--secondary);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+            background: linear-gradient(180deg, rgba(0,212,255,0.05) 0%, rgba(0,0,0,0) 100%);
+        }
+        .feature-list {
+            text-align: left;
+            margin: 20px 0;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .feature-item {
+            margin-bottom: 8px;
+        }
+        .save-badge {
+            background-color: var(--primary);
+            color: black;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -219,23 +242,30 @@ STRIPE_LINKS = {
 }
 
 def safe_float(val):
-    """Safety Shield: Forces strings/mixed data to float to prevent app crash"""
+    """Titanium Shield: Forces strings/mixed data to float to prevent app crash"""
     if val is None: return 0.0
     if isinstance(val, (int, float)): return float(val)
     if isinstance(val, str):
         val = val.strip().replace(',', '').replace('%', '').replace('$', '')
         if val == '-' or val == '' or val == 'N/A' or val == 'nan': return 0.0
-        
-        # Handle B/M/K/T suffix
         multi = 1.0
         if val.endswith('B'): multi = 1e9; val = val[:-1]
         elif val.endswith('M'): multi = 1e6; val = val[:-1]
         elif val.endswith('K'): multi = 1e3; val = val[:-1]
         elif val.endswith('T'): multi = 1e12; val = val[:-1]
-            
         try: return float(val) * multi
         except: return 0.0
     return 0.0
+
+def format_large_number(num):
+    if not num or isinstance(num, str): return "N/A"
+    try:
+        num = safe_float(num)
+        if num >= 1e12: return f"${num/1e12:.2f}T"
+        if num >= 1e9: return f"${num/1e9:.2f}B"
+        if num >= 1e6: return f"${num/1e6:.2f}M"
+        return f"${num:.2f}"
+    except: return "N/A"
 
 def get_google_news(ticker):
     try:
@@ -298,7 +328,6 @@ def calculate_smart_levels(df):
 def generate_ai_summary(news_items):
     text_corpus = ""
     valid_news = []
-    
     if news_items:
         for n in news_items:
             title = n.get('title', '')
@@ -308,30 +337,22 @@ def generate_ai_summary(news_items):
                 valid_news.append({'title': title, 'link': link})
     
     if not text_corpus or len(text_corpus) < 20:
-        return "⚠️ **ANALYST NOTE:** Real-time news feed is quiet. While technical indicators suggest a direction, **exercise caution**. The AI suggests waiting for a catalyst or strictly following the technical levels (Support/Resistance).", valid_news
+        return "⚠️ **ANALYST NOTE:** Real-time news feed is quiet. Exercise caution.", valid_news
             
     words = re.findall(r'\w+', text_corpus.lower())
-    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market', 'stocks', 'check', 'latest', 'news', 'google', 'finance', 'today', 'why', 'update', 'share', 'price']
+    ignore = ['the', 'a', 'to', 'of', 'in', 'and', 'for', 'on', 'with', 'at', 'is', 'stock', 'market']
     filtered = [w for w in words if w not in ignore and len(w) > 4]
-    
     common = Counter(filtered).most_common(5)
     keywords = [c[0].upper() for c in common]
     
     blob = TextBlob(text_corpus)
     pol = blob.sentiment.polarity
-    
     if pol > 0.1: tone = "BULLISH 🐂"
     elif pol < -0.1: tone = "BEARISH 🐻"
     else: tone = "NEUTRAL / MIXED ⚖️"
     
-    summary = f"AI ANALYST SCAN: **{tone}**\n"
-    summary += "Based on latest Google News analysis. "
-    if keywords:
-        summary += f"Key Topics: {', '.join(keywords)}. "
-    
-    if tone == "NEUTRAL / MIXED ⚖️":
-        summary += "Market direction is unclear from headlines. Rely on Technicals."
-    
+    summary = f"AI ANALYST SCAN: **{tone}**\nBased on recent headlines. "
+    if keywords: summary += f"Key Topics: {', '.join(keywords)}. "
     return summary, valid_news
 
 def generate_ceo_report(target_data):
@@ -380,12 +401,9 @@ CONFIDENTIAL - GENERATED BY WARP SPEED TERMINAL
 
 def calculate_indicators(hist):
     if hist.empty: return hist
-    
-    # Flatten columns if multi-index (Fix for yfinance)
-    if isinstance(hist.columns, pd.MultiIndex):
+    if isinstance(hist.columns, pd.MultiIndex): 
         try: hist.columns = hist.columns.get_level_values(0)
         except: pass
-        
     if 'Close' not in hist.columns: return hist
 
     delta = hist['Close'].diff()
@@ -393,8 +411,6 @@ def calculate_indicators(hist):
     loss = -delta.where(delta < 0, 0)
     avg_gain = gain.ewm(com=13, adjust=False).mean()
     avg_loss = loss.ewm(com=13, adjust=False).mean()
-    
-    # Fix division by zero
     rs = avg_gain / avg_loss.replace(0, 0.001)
     hist['RSI'] = 100 - (100 / (1 + rs))
     
@@ -407,7 +423,6 @@ def calculate_indicators(hist):
     hist['STD20'] = hist['Close'].rolling(window=20).std()
     hist['UpperBB'] = hist['SMA20'] + (hist['STD20'] * 2)
     hist['LowerBB'] = hist['SMA20'] - (hist['STD20'] * 2)
-    
     return hist
 
 def find_oracle_pattern(hist_series, lookback=30, projection=15):
@@ -438,16 +453,6 @@ def find_oracle_pattern(hist_series, lookback=30, projection=15):
         ghost_future = ghost.iloc[lookback:] * scale_factor
         return ghost_future
     return None
-
-def format_large_number(num):
-    if not num or isinstance(num, str): return "N/A"
-    try:
-        num = safe_float(num)
-        if num >= 1e12: return f"${num/1e12:.2f}T"
-        if num >= 1e9: return f"${num/1e9:.2f}B"
-        if num >= 1e6: return f"${num/1e6:.2f}M"
-        return f"${num:.2f}"
-    except: return "N/A"
 
 @st.cache_data(ttl=3600)
 def get_spy_data():
@@ -941,52 +946,34 @@ if not st.session_state['logged_in']:
         **Warp Speed Terminal** is a professional analysis platform that synthesizes Technical Analysis, Fundamental Data, and Artificial Intelligence. It is designed to transform chaotic market data into clear, actionable signals, offering features typically found only in institutional-grade terminals.
 
         #### 🚀 NEW: Titanium Data Engine (V12.0)
-        We have integrated a **6-Layer Omni-Channel Aggregator** that pulls data from Yahoo, Nasdaq, StockAnalysis, Finviz, MarketWatch, and Finnhub simultaneously. If one source fails, the next one takes over instantly to ensure **zero dead data**.
+        We have integrated a **6-Layer Omni-Channel Aggregator** that pulls data from multiple institutional-grade sources simultaneously. If one source fails, the next one takes over instantly to ensure **zero dead data**.
 
         #### Detailed Features:
 
-        **1. Central Control Panel (Smart Dashboard)**
-        The Investor's Headquarters.
-        * **Macro Climate Bar:** Live monitoring of the global market (VIX/Fear Index, 10-Year Bonds, Bitcoin, Oil) for an immediate grasp of market sentiment.
-        * **Smart Watchlist & Memory:** The user inputs tickers (e.g., AAPL, NVDA), and the system automatically saves them. Upon the next launch, the portfolio is pre-loaded.
-        * **The Evaluation Algorithm:**
-            * *Verdict:* A clear command signal (STRONG BUY, BUY, HOLD, SELL).
-            * *Sniper Score (/100):* A quantitative scoring of the opportunity based on multiple factors.
-            * *Bubble Alert:* Detection of overvalued stocks (bubbles).
-            * *RVOL & RSI:* Detection of unusual volume (institutional interest) and oversold levels.
-        * **Market Heatmap:** Visual Treemap showing market performance at a glance.
+        **1. 🔍 The "X-Ray" Vision (Fundamentals)**
+        * **Valuation:** P/E, PEG, Price-to-Sales.
+        * **Health:** Cash on Hand, Total Debt, EBITDA, Revenue.
+        * **Dividends:** Yield and Payouts.
+        * **Company Identity:** Full description, Sector, Industry, and Employee count.
 
-        **2. Deep Analysis (Deep Dive View)**
-        Double-clicking opens a full "X-ray" tab for the stock:
-        * **Analysis & AI Tab:** Justification of the Score using specific tags (e.g., "Volatility Squeeze"). The NLP engine "reads" the news, analyzes sentiment (Bullish/Bearish), and provides links to sources.
-        * **Fundamentals Tab (Enriched):**
-            * *Valuation:* P/E, PEG, Market Cap.
-            * *Financial Health (NEW):* Revenue, Cash on Hand, Debt, and EBITDA.
-            * *Efficiency:* ROE, Profit Margins.
-        * **Wall Street:** Comparison with analyst forecasts, price targets, and **Next Earnings Date**.
-        * **Risk & Insiders Tab (NEW):**
-            * *Volatility:* Beta and Short Ratio.
-            * *Institutional Holdings:* Blackrock/Vanguard ownership data (Multi-source backup).
-            * *Insider Trading:* Real-time tracking of CEO/Executive buy/sell orders.
-        * **Derivatives & Options Tab (NEW):**
-            * *Put/Call Ratio:* Sentiment analysis via options volume.
-            * *Option Chain:* Top active contracts for the next expiry.
+        **2. 🧠 The "Brain" (Analysis)**
+        * **The Oracle:** Pattern-matching algorithm that predicts future moves based on history.
+        * **The Event Horizon:** Monte Carlo simulation running 1,000 future scenarios.
+        * **AI Briefing:** Sentiment analysis reading the news so you don't have to.
 
-        **3. Advanced Charting & "The Event Horizon"**
-        Three synchronized charts with selectable timeframes (1M, 3M, 6M, 1Y, MAX):
-        * **Price Chart with Benchmarking:**
-        * **Oracle Projection:** The algorithm scans historical data, identifies similar past patterns, and projects a forecast line (Ghost) for the future.
-        * **Monte Carlo Simulation (The Event Horizon):** A statistical probability cloud (Best/Worst Case Scenarios) for the next 30 days based on volatility.
-        * **SPY Overlay:** Compares the stock's performance directly against the S&P 500 index (to see if you are beating the market).
-        * **Smart Technicals:** Auto-drawing of **Support/Resistance** levels and **Fibonacci Retracements**.
-        * **Technical Tools:** Bollinger Bands, Fibonacci Levels, and Support/Resistance levels.
-        * **MACD:** Indicates Momentum and trend reversals.
-        * **Volume:** Color-coded volume for analyzing buyer/seller pressure.
+        **3. 🕵️ The "Insider" Edge (Institutional Data)**
+        * **Hedge Funds:** See who owns the stock (Vanguard, Blackrock).
+        * **Insider Trading:** See if the CEO is buying or selling their own shares.
+        * **Short Interest:** See if Wall Street is betting against the stock.
 
-        **4. Management & Export Tools**
-        * **Correlation Matrix:** Creation of a Heatmap to check correlations between portfolio stocks (Risk Management).
-        * **Data Export:** Instant export of all data and scores to Excel/CSV files for archiving.
-        * **CEO Report:** One-click generation of a full text briefing for sharing.
+        **4. 🔮 The "Wall Street" View**
+        * **Consensus:** "Buy/Sell" ratings from top analysts.
+        * **Price Targets:** Exact price predictions from Wall St.
+        * **Earnings:** Next earnings date countdown.
+
+        **5. 📈 Derivatives & Options (NEW)**
+        * **Put/Call Ratio:** Real-time sentiment (Bullish vs Bearish).
+        * **Option Chain:** Top active contracts for the next expiry.
         """)
     
     st.markdown("<br><h2 style='text-align: center;'>LIVE WEB PLATFORM PREVIEW</h2>", unsafe_allow_html=True)
