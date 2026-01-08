@@ -225,7 +225,6 @@ def safe_float(val):
     if isinstance(val, str):
         val = val.strip().replace(',', '').replace('%', '').replace('$', '')
         if val == '-' or val == '' or val == 'N/A' or val == 'nan': return 0.0
-        
         # Handle B/M/K/T suffix
         multi = 1.0
         if val.endswith('B'): multi = 1e9; val = val[:-1]
@@ -463,25 +462,6 @@ def get_spy_data():
 # --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
 
-def fetch_marketwatch_holders(ticker):
-    """
-    TITANIUM SCRAPER: Pulls holdings from MarketWatch if Yahoo is blocked.
-    """
-    try:
-        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        # MarketWatch tables are clean
-        dfs = pd.read_html(response.text)
-        
-        # Look for the institutional table
-        for df in dfs:
-            if 'Name' in df.columns or 'Holder' in df.columns:
-                return df.head(10)
-        return None
-    except: return None
-
 def fetch_finviz_data(ticker):
     """Scrapes Finviz table when APIs fail."""
     try:
@@ -491,7 +471,6 @@ def fetch_finviz_data(ticker):
         
         if req.status_code != 200: return {}
         
-        # Parse table with pandas (requires lxml)
         dfs = pd.read_html(req.text, attrs={'class': 'snapshot-table2'})
         if not dfs: return {}
         
@@ -503,22 +482,84 @@ def fetch_finviz_data(ticker):
                 val = str(row[i+1])
                 data[key] = val
         
-        # Normalize to our keys with safe_float conversion
-        info = {
+        # Parse Finviz Recom (1=Strong Buy, 5=Sell)
+        recom_num = safe_float(data.get('Recom', '3.0'))
+        recom_text = "Hold"
+        if recom_num <= 1.5: recom_text = "Strong Buy"
+        elif recom_num <= 2.5: recom_text = "Buy"
+        elif recom_num >= 4.5: recom_text = "Sell"
+        elif recom_num >= 3.5: recom_text = "Underperform"
+        
+        return {
             'marketCap': safe_float(data.get('Market Cap')),
             'trailingPE': safe_float(data.get('P/E')),
             'pegRatio': safe_float(data.get('PEG')),
             'beta': safe_float(data.get('Beta')),
-            'dividendYield': safe_float(data.get('Dividend %')) / 100, # Convert 1.5% to 0.015
+            'dividendYield': safe_float(data.get('Dividend %')) / 100, 
             'profitMargins': safe_float(data.get('Profit Margin')) / 100,
             'shortRatio': safe_float(data.get('Short Float')) / 100,
             'targetMeanPrice': safe_float(data.get('Target Price')),
-            'recommendationKey': 'Hold'
+            'recommendationKey': recom_text
         }
-        return info
-    except Exception:
-        # Silently fail so main app doesnt crash
-        return {}
+    except: return {}
+
+def fetch_finnhub_consensus(ticker):
+    """Gets Consensus from Finnhub Free Tier"""
+    try:
+        finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
+        if not finnhub_key: return "N/A"
+        client = finnhub.Client(api_key=finnhub_key)
+        
+        if "BTC" in ticker: return "N/A (Crypto)"
+        
+        res = client.recommendation_trends(ticker)
+        if not res: return "N/A"
+        
+        latest = res[0]
+        counts = {
+            'Strong Buy': latest.get('strongBuy', 0),
+            'Buy': latest.get('buy', 0),
+            'Hold': latest.get('hold', 0),
+            'Sell': latest.get('sell', 0)
+        }
+        winner = max(counts, key=counts.get)
+        return winner
+    except: return "N/A"
+
+def fetch_nasdaq_holdings(ticker):
+    """Layer 2: Secret Nasdaq API for Institutional Holdings"""
+    try:
+        url = f"https://api.nasdaq.com/api/company/{ticker}/institutional-holdings?limit=10&type=TOTAL&sortColumn=marketValue&sortOrder=DESC"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://www.nasdaq.com',
+            'Referer': f'https://www.nasdaq.com/market-activity/stocks/{ticker.lower()}/institutional-holdings'
+        }
+        r = requests.get(url, headers=headers, timeout=5)
+        data = r.json()
+        
+        rows = data['data']['institutionalHoldings']['rows']
+        if rows:
+            df = pd.DataFrame(rows)
+            df = df[['ownerName', 'date', 'sharesHeld', 'value']]
+            df.columns = ['Holder', 'Date', 'Shares', 'Value']
+            return df.head(10)
+        return None
+    except: return None
+
+def fetch_marketwatch_holdings(ticker):
+    """Layer 3: MarketWatch Scraper for Holdings"""
+    try:
+        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        r = requests.get(url, headers=headers, timeout=5)
+        dfs = pd.read_html(r.text)
+        for df in dfs:
+            if 'Name' in df.columns:
+                return df[['Name', 'Recent Activity']].head(10)
+        return None
+    except: return None
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_ticker_data(ticker, period="1y"):
@@ -529,7 +570,6 @@ def fetch_ticker_data(ticker, period="1y"):
     # 1. PRICE HISTORY (YFinance -> Finnhub)
     # ----------------------------------------------
     try:
-        # Map period string
         valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
         p = period.lower() if period.lower() in valid_periods else "1y"
         
@@ -539,10 +579,9 @@ def fetch_ticker_data(ticker, period="1y"):
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
     except:
-        pass # Fallback below
+        pass 
 
     if df is None or df.empty:
-        # Fallback to Finnhub Price
         try:
             finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
             if finnhub_key:
@@ -577,16 +616,15 @@ def fetch_ticker_data(ticker, period="1y"):
                 'beta': d.get('summaryDetail', {}).get('beta'),
                 'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
                 'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
-                'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'Hold'),
-                'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', ''),
+                'recommendationKey': d.get('financialData', {}).get('recommendationKey'),
+                'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
                 'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
                 'industry': d.get('assetProfile', {}).get('industry', 'N/A')
             }
     except: pass
 
     # 2.2 Finviz (Secondary - Fill Gaps)
-    # We check if key metrics are missing
-    if not info.get('trailingPE'):
+    if not info.get('trailingPE') or not info.get('recommendationKey'):
         finviz_data = fetch_finviz_data(ticker)
         if finviz_data:
             for k, v in finviz_data.items():
@@ -594,6 +632,9 @@ def fetch_ticker_data(ticker, period="1y"):
                     info[k] = v
 
     # 2.3 Finnhub (Tertiary - Backup & Crypto)
+    if not info.get('recommendationKey') or info.get('recommendationKey') == 'N/A':
+        info['recommendationKey'] = fetch_finnhub_consensus(ticker)
+
     try:
         finnhub_key = st.secrets.get("finnhub", {}).get("api_key", "")
         if finnhub_key:
@@ -601,16 +642,12 @@ def fetch_ticker_data(ticker, period="1y"):
             prof = client.company_profile2(symbol=ticker)
             quote = client.quote(ticker)
             
-            # If missing major keys, use Finnhub
             if not info.get('marketCap'):
                 info['marketCap'] = prof.get('marketCapitalization', 0) * 1_000_000
-            if not info.get('sector') or info.get('sector') == 'N/A':
-                info['sector'] = prof.get('finnhubIndustry', 'Technology')
-                info['industry'] = prof.get('finnhubIndustry', 'Technology')
-            
-            # Smart Fallback Description
-            if not info.get('longBusinessSummary'):
-                info['longBusinessSummary'] = f"{ticker} is a major player in the {info.get('sector')} sector, dealing primarily in {info.get('industry')}."
+            if not info.get('sector'):
+                info['sector'] = prof.get('finnhubIndustry', '-')
+            if not info.get('longBusinessSummary') or info.get('longBusinessSummary') == 'Description Unavailable':
+                info['longBusinessSummary'] = f"A company in the {prof.get('finnhubIndustry', 'Market')} sector."
             
             info['currentPrice'] = quote.get('c', 0)
     except: pass
@@ -633,7 +670,6 @@ def scan_market_safe(tickers, period="1y"):
             if 'Close' not in df.columns: continue
 
             curr = df['Close'].iloc[-1]
-            # Fill current price if missing in info
             if not info.get('currentPrice'): info['currentPrice'] = curr
 
             prev = df['Close'].iloc[-2]
@@ -1231,26 +1267,35 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
             st.markdown("---")
             st.markdown("##### 🏛️ INSTITUTIONAL HOLDINGS")
             
-            # ATTEMPT 1: YAHOO QUERY
-            found_holdings = False
-            try: 
+            # 1. Try YahooQuery
+            found = False
+            try:
                 yq = YQTicker(sel_t)
                 holders = yq.institution_ownership
                 if holders is not None and isinstance(holders, pd.DataFrame) and not holders.empty:
                     st.table(holders.head(10))
-                    found_holdings = True
+                    found = True
             except: pass
             
-            # ATTEMPT 2: MARKETWATCH SCRAPER (TITANIUM BACKUP)
-            if not found_holdings:
+            # 2. Try Nasdaq API (Titanium Layer)
+            if not found:
                 try:
-                    mw_df = fetch_marketwatch_holders(sel_t)
-                    if mw_df is not None and not mw_df.empty:
-                        st.table(mw_df)
-                        found_holdings = True
+                    df_nas = fetch_nasdaq_holdings(sel_t)
+                    if df_nas is not None and not df_nas.empty:
+                        st.table(df_nas)
+                        found = True
                 except: pass
                 
-            if not found_holdings:
+            # 3. Try MarketWatch Scraper (Backup)
+            if not found:
+                try:
+                    df_mw = fetch_marketwatch_holdings(sel_t)
+                    if df_mw is not None and not df_mw.empty:
+                        st.table(df_mw)
+                        found = True
+                except: pass
+            
+            if not found:
                 st.info("Institutional data unavailable (Feed restricted).")
 
     elif not run_scan:
