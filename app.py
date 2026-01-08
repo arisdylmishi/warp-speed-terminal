@@ -463,6 +463,25 @@ def get_spy_data():
 # --- OMNI-CHANNEL DATA AGGREGATOR (6-LAYER FETCHING) ---
 # ==============================================================
 
+def fetch_marketwatch_holders(ticker):
+    """
+    TITANIUM SCRAPER: Pulls holdings from MarketWatch if Yahoo is blocked.
+    """
+    try:
+        url = f"https://www.marketwatch.com/investing/stock/{ticker.lower()}/holdings"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        # MarketWatch tables are clean
+        dfs = pd.read_html(response.text)
+        
+        # Look for the institutional table
+        for df in dfs:
+            if 'Name' in df.columns or 'Holder' in df.columns:
+                return df.head(10)
+        return None
+    except: return None
+
 def fetch_finviz_data(ticker):
     """Scrapes Finviz table when APIs fail."""
     try:
@@ -478,8 +497,6 @@ def fetch_finviz_data(ticker):
         
         df = dfs[0]
         data = {}
-        # Finviz table is weird (col 0 is key, col 1 is val, col 2 is key, col 3 is val...)
-        # We flatten it
         for i in range(0, len(df.columns), 2):
             for index, row in df.iterrows():
                 key = str(row[i])
@@ -499,7 +516,7 @@ def fetch_finviz_data(ticker):
             'recommendationKey': 'Hold'
         }
         return info
-    except Exception as e:
+    except Exception:
         # Silently fail so main app doesnt crash
         return {}
 
@@ -542,7 +559,7 @@ def fetch_ticker_data(ticker, period="1y"):
                     df.index = pd.to_datetime(res['t'], unit='s')
         except: pass
 
-    if df is None or df.empty: return None, None # Give up if no price anywhere
+    if df is None or df.empty: return None, None
 
     # ----------------------------------------------
     # 2. FUNDAMENTALS (Cascade: YahooQuery -> Finviz -> Finnhub)
@@ -561,9 +578,9 @@ def fetch_ticker_data(ticker, period="1y"):
                 'shortRatio': d.get('defaultKeyStatistics', {}).get('shortRatio'),
                 'targetMeanPrice': d.get('financialData', {}).get('targetMeanPrice'),
                 'recommendationKey': d.get('financialData', {}).get('recommendationKey', 'Hold'),
-                'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', 'Description Unavailable'),
-                'sector': d.get('assetProfile', {}).get('sector', '-'),
-                'industry': d.get('assetProfile', {}).get('industry', '-')
+                'longBusinessSummary': d.get('assetProfile', {}).get('longBusinessSummary', ''),
+                'sector': d.get('assetProfile', {}).get('sector', 'N/A'),
+                'industry': d.get('assetProfile', {}).get('industry', 'N/A')
             }
     except: pass
 
@@ -587,42 +604,18 @@ def fetch_ticker_data(ticker, period="1y"):
             # If missing major keys, use Finnhub
             if not info.get('marketCap'):
                 info['marketCap'] = prof.get('marketCapitalization', 0) * 1_000_000
-            if not info.get('sector'):
-                info['sector'] = prof.get('finnhubIndustry', '-')
-            if not info.get('longBusinessSummary') or info.get('longBusinessSummary') == 'Description Unavailable':
-                info['longBusinessSummary'] = f"A company in the {prof.get('finnhubIndustry', 'Market')} sector."
+            if not info.get('sector') or info.get('sector') == 'N/A':
+                info['sector'] = prof.get('finnhubIndustry', 'Technology')
+                info['industry'] = prof.get('finnhubIndustry', 'Technology')
+            
+            # Smart Fallback Description
+            if not info.get('longBusinessSummary'):
+                info['longBusinessSummary'] = f"{ticker} is a major player in the {info.get('sector')} sector, dealing primarily in {info.get('industry')}."
             
             info['currentPrice'] = quote.get('c', 0)
     except: pass
 
     return df, info
-
-def fetch_holders_nuclear(ticker):
-    """
-    THE NUCLEAR OPTION: Manually rips the holders table from Yahoo Finance HTML
-    Bypasses API blocks by looking like a real Chrome browser.
-    """
-    try:
-        # 1. Setup headers to look like a real user
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        url = f"https://finance.yahoo.com/quote/{ticker}/holders"
-        
-        # 2. Fetch the page
-        r = requests.get(url, headers=headers)
-        
-        # 3. Parse tables
-        dfs = pd.read_html(r.text)
-        
-        # 4. Find the right table (usually the one with 'Holder' column)
-        for df in dfs:
-            if 'Holder' in df.columns or 'Organization' in df.columns:
-                return df.head(10)
-        
-        return None
-    except:
-        return None
 
 def scan_market_safe(tickers, period="1y"):
     results = []
@@ -1248,12 +1241,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
                     found_holdings = True
             except: pass
             
-            # ATTEMPT 2: NUCLEAR SCRAPER (Fallback)
+            # ATTEMPT 2: MARKETWATCH SCRAPER (TITANIUM BACKUP)
             if not found_holdings:
                 try:
-                    nuclear_df = fetch_holders_nuclear(sel_t)
-                    if nuclear_df is not None and not nuclear_df.empty:
-                        st.table(nuclear_df)
+                    mw_df = fetch_marketwatch_holders(sel_t)
+                    if mw_df is not None and not mw_df.empty:
+                        st.table(mw_df)
                         found_holdings = True
                 except: pass
                 
