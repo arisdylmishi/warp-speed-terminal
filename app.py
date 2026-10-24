@@ -918,7 +918,7 @@ if not st.session_state['logged_in']:
         with tab_login:
             email = st.text_input("Email", key="l_email")
             password = st.text_input("Password", type='password', key="l_pass")
-                if st.button("LAUNCH TERMINAL", type="primary"):
+            if st.button("LAUNCH TERMINAL", type="primary"):
                 admin_user = st.secrets.get("admin", {}).get("username", "")
                 admin_pass = st.secrets.get("admin", {}).get("password", "")
                 if admin_user and email == admin_user and password == admin_pass:
