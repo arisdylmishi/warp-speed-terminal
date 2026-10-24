@@ -919,7 +919,9 @@ if not st.session_state['logged_in']:
             email = st.text_input("Email", key="l_email")
             password = st.text_input("Password", type='password', key="l_pass")
             if st.button("LAUNCH TERMINAL", type="primary"):
-                if email == "admin" and password == "PROTOS123":
+               admin_user = st.secrets.get("admin", {}).get("username", "")
+admin_pass = st.secrets.get("admin", {}).get("password", "")
+if admin_user and email == admin_user and password == admin_pass:
                     st.session_state.update({'logged_in': True, 'user_email': "admin", 'expiry_date': "LIFETIME", 'user_status': 'active'})
                     st.rerun()
                 else:
