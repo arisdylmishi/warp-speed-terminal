@@ -834,12 +834,20 @@ def add_user(email, password):
 
 def login_user_db(email, password):
     if not supabase: return []
-    hashed_pw = make_hashes(password)
     try:
-        res = supabase.table("users").select("*").eq("email", email).eq("password", hashed_pw).execute()
-        if res.data: return [list(res.data[0].values())]
-    except: pass
-    return []
+        res = supabase.table("users").select("*").eq("email", email).execute()
+        if not res.data: return []
+        row = res.data[0]
+        stored = str(row.get("password", ""))
+        if not check_hashes(password, stored): return []
+        if not stored.startswith("$2"):
+            try:
+                supabase.table("users").update({"password": make_hashes(password)}).eq("email", email).execute()
+            except Exception:
+                pass
+        return [list(row.values())]
+    except Exception:
+        return []
 
 def add_subscription_days(email, days_to_add):
     if not supabase: return None
