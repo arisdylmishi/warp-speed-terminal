@@ -813,12 +813,22 @@ def init_connection():
 
 supabase = init_connection()
 
+def _pw_bytes(password):
+    return password.encode("utf-8")[:72]
+
 def make_hashes(password):
+    return bcrypt.hashpw(_pw_bytes(password), bcrypt.gensalt()).decode("utf-8")
+
+def legacy_sha256(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def check_hashes(password, hashed_text):
-    if make_hashes(password) == hashed_text: return hashed_text
-    return False
+    if hashed_text.startswith("$2"):
+        try:
+            return bcrypt.checkpw(_pw_bytes(password), hashed_text.encode("utf-8"))
+        except Exception:
+            return False
+    return legacy_sha256(password) == hashed_text
 
 def add_user(email, password):
     if not supabase: return False
