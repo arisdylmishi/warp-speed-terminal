@@ -1,0 +1,4 @@
+flask>=3.0
+stripe>=9.0
+supabase>=2.4
+gunicorn>=22.0
