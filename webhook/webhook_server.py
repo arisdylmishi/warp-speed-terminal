@@ -59,7 +59,6 @@ def webhook():
                 days = PRICE_TO_DAYS.get(price_id, 30)
         except Exception:
             pass
-        print(f"DEBUG: webhook got email = {repr(email)}", flush=True)
         if email:
             new_expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
             supabase.table("users").update(
@@ -68,7 +67,7 @@ def webhook():
             result = supabase.table("users").update(
                 {"status": "active", "expiry_date": new_expiry}
             ).eq("email", email).execute()
-            print(f"DEBUG: update result = {result}", flush=True)
+        
     return jsonify(received=True), 200
 
 
