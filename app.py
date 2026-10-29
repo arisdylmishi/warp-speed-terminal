@@ -15,6 +15,7 @@ from plotly.subplots import make_subplots
 from textblob import TextBlob
 from collections import Counter
 import re
+from urllib.parse import quote
 import requests
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
@@ -241,6 +242,12 @@ STRIPE_LINKS = {
     "6M": "https://buy.stripe.com/14A6oB16A7RPfPjg2CeAg01?days=180",
     "1Y": "https://buy.stripe.com/28EaER16A6NL9qV6s2eAg00?days=365",
 }
+
+def stripe_link(plan_key):
+    base = STRIPE_LINKS[plan_key]
+    email = st.session_state.get('user_email', '')
+    separator = "&" if "?" in base else "?"
+    return f"{base}{separator}client_reference_id={quote(email)}"
 
 def safe_float(val):
     """Titanium Shield: Forces strings/mixed data to float to prevent app crash"""
@@ -889,30 +896,6 @@ if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 # ==========================================
 # --- SECURE PAYMENT VERIFICATION ---
 # ==========================================
-query_params = st.query_params
-
-if "payment_success" in query_params and st.session_state['logged_in']:
-    token_received = query_params.get("token", "")
-    try: secret_check = st.secrets["payment"]["secret_token"]
-    except KeyError:
-        st.error("SYSTEM ERROR: Payment secret not configured.")
-        secret_check = "MISSING_SECRET"
-
-    if token_received == secret_check:
-        try:
-            days_purchased = query_params.get("days", 30)
-            new_date = add_subscription_days(st.session_state['user_email'], days_purchased)
-            st.session_state['user_status'] = 'active'
-            st.session_state['expiry_date'] = new_date
-            st.toast(f"VIP ACTIVATED until {new_date}", icon="🚀")
-            st.query_params.clear()
-            time.sleep(2)
-            st.rerun()
-        except Exception as e:
-            st.error(f"Activation Error: {e}")
-    else:
-        st.error("⛔ SECURITY ALERT: Unauthorized payment attempt detected.")
-        st.query_params.clear()
 
 # ==========================================
 # --- 5. VIEW: LANDING PAGE ---
@@ -1050,7 +1033,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
                     <div class="feature-item">✓ Real-time AI Analysis</div>
                     <div class="feature-item">✓ Insider Trading Data</div>
                 </div>
-                <a href="{STRIPE_LINKS['1M']}" target="_blank">
+                <a href="{stripe_link('1M')}" target="_blank">
                     <button style="background: transparent; border: 1px solid #00FF41; color: #00FF41; padding: 10px 20px; width: 100%; font-weight: bold; cursor: pointer;">ACTIVATE</button>
                 </a>
             </div>
@@ -1066,7 +1049,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
                     <div class="feature-item">✓ Quarterly Billing</div>
                     <div class="feature-item">✓ Full Access</div>
                 </div>
-                <a href="{STRIPE_LINKS['3M']}" target="_blank">
+                <a href="{stripe_link('3M')}" target="_blank">
                     <button style="background: transparent; border: 1px solid #00FF41; color: #00FF41; padding: 10px 20px; width: 100%; font-weight: bold; cursor: pointer;">ACTIVATE</button>
                 </a>
             </div>
@@ -1082,7 +1065,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
                     <div class="feature-item">✓ 6-Month Billing</div>
                     <div class="feature-item">✓ Full Access</div>
                 </div>
-                <a href="{STRIPE_LINKS['6M']}" target="_blank">
+                <a href="{stripe_link('6M')}" target="_blank">
                     <button style="background: transparent; border: 1px solid #00FF41; color: #00FF41; padding: 10px 20px; width: 100%; font-weight: bold; cursor: pointer;">ACTIVATE</button>
                 </a>
             </div>
@@ -1098,7 +1081,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] != 'activ
                     <div class="feature-item">✓ Priority Support</div>
                     <div class="feature-item">✓ Early Access to V2.0</div>
                 </div>
-                <a href="{STRIPE_LINKS['1Y']}" target="_blank">
+                <a href="{stripe_link('1Y')}" target="_blank">
                     <button style="background: #00d4ff; border: none; color: black; padding: 12px 20px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(0,212,255,0.4);">ACTIVATE YEARLY</button>
                 </a>
             </div>
