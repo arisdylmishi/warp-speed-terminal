@@ -45,8 +45,10 @@ def webhook():
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
-        email = session.get("client_reference_id") or (
-            session.get("customer_details", {}) or {}
+                
+        session_dict = session.to_dict() if hasattr(session, "to_dict") else session
+        email = session_dict.get("client_reference_id") or (
+            session_dict.get("customer_details", {}) or {}
         ).get("email")
 
         days = 30
