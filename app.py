@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client, Client
 import hashlib
+import bcrypt
 import yfinance as yf
 from yahooquery import Ticker as YQTicker
 import finnhub
