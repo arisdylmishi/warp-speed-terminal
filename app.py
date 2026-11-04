@@ -15,6 +15,7 @@ from plotly.subplots import make_subplots
 from textblob import TextBlob
 from collections import Counter
 import re
+import secrets
 from urllib.parse import quote
 import requests
 import xml.etree.ElementTree as ET
@@ -837,16 +838,52 @@ def check_hashes(password, hashed_text):
         except Exception:
             return False
     return legacy_sha256(password) == hashed_text
+def generate_verify_token():
+    return secrets.token_urlsafe(24)
 
+def send_verification_email(email, token):
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    base_url = os.environ.get("APP_BASE_URL", "https://warpspeedterminal.com")
+    if not api_key:
+        return False
+    verify_link = f"{base_url}/?verify=1&token={token}&email={quote(email)}"
+    html = f"""
+    <div style="background:#050505;color:#e0e0e0;font-family:monospace;padding:40px;text-align:center;">
+      <h1 style="color:#00ff41;letter-spacing:2px;">⚡ WARP SPEED TERMINAL</h1>
+      <p style="color:#00d4ff;letter-spacing:1px;">SYSTEM ACCESS PENDING</p>
+      <p style="margin:30px 0;">One step left before your trial run begins. Confirm this terminal is yours:</p>
+      <a href="{verify_link}" style="display:inline-block;border:1px solid #00ff41;color:#00ff41;padding:12px 28px;text-decoration:none;letter-spacing:2px;">&gt; VERIFY &amp; LAUNCH</a>
+      <p style="margin-top:30px;color:#555;font-size:12px;">If you didn't request this, ignore this transmission.</p>
+    </div>
+    """
+    try:
+        requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": "Warp Speed Terminal <access@warpspeedterminal.com>",
+                "to": [email],
+                "subject": "⚡ Verify your terminal access",
+                "html": html,
+            },
+            timeout=10,
+        )
+        return True
+    except Exception:
+        return False
 def add_user(email, password):
     if not supabase: return False
     hashed_pw = make_hashes(password)
     past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     current_date = datetime.now().strftime("%Y-%m-%d")
+    token = generate_verify_token()
     try:
         supabase.table("users").insert({
-            "email": email, "password": hashed_pw, "status": 'expired', "join_date": current_date, "expiry_date": past_date
+            "email": email, "password": hashed_pw, "status": 'unverified',
+            "join_date": current_date, "expiry_date": past_date,
+            "verified": False, "verify_token": token
         }).execute()
+        send_verification_email(email, token)
         return True
     except: return False
 
@@ -939,7 +976,7 @@ if not st.session_state['logged_in']:
             new_email = st.text_input("New Email", key="s_email")
             new_pass = st.text_input("New Password", type='password', key="s_pass")
             if st.button("CREATE ACCOUNT"):
-                if add_user(new_email, new_pass): st.success("Created! Please Log In.")
+                if add_user(new_email, new_pass): st.success("📡 TRANSMISSION SENT // Check your inbox to verify access and launch your trial.")
                 else: st.error("Email exists.")
 
     with c2:
