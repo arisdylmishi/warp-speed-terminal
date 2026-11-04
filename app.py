@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import hashlib
 import bcrypt
+import os
 import yfinance as yf
 from yahooquery import Ticker as YQTicker
 import finnhub
@@ -915,10 +916,15 @@ def check_subscription_validity(email, current_expiry_str):
     if not current_expiry_str: return False
     if not supabase: return False
     try:
-        expiry_date = datetime.strptime(current_expiry_str, "%Y-%m-%d")
-        if datetime.now() > expiry_date + timedelta(days=1):
+        try:
+            expiry_dt = datetime.strptime(current_expiry_str, "%Y-%m-%d %H:%M:%S")
+            grace = timedelta(seconds=0)
+        except ValueError:
+            expiry_dt = datetime.strptime(current_expiry_str, "%Y-%m-%d")
+            grace = timedelta(days=1)
+        if datetime.now() > expiry_dt + grace:
             supabase.table("users").update({"status": "expired"}).eq("email", email).execute()
-            return False 
+            return False
         return True
     except: return False
 
@@ -930,6 +936,32 @@ if 'user_email' not in st.session_state: st.session_state['user_email'] = ""
 if 'user_status' not in st.session_state: st.session_state['user_status'] = "expired"
 if 'expiry_date' not in st.session_state: st.session_state['expiry_date'] = ""
 
+if "verify" in st.query_params:
+    v_token = st.query_params.get("token", "")
+    v_email = st.query_params.get("email", "")
+    try:
+        res = supabase.table("users").select("*").eq("email", v_email).execute()
+        if res.data:
+            row = res.data[0]
+            if row.get("verified"):
+                st.info("✅ This terminal is already verified. Please log in.")
+            elif row.get("verify_token") and row.get("verify_token") == v_token:
+                trial_minutes = int(os.environ.get("TRIAL_MINUTES", "1"))
+                new_expiry_dt = datetime.now() + timedelta(minutes=trial_minutes)
+                supabase.table("users").update({
+                    "verified": True,
+                    "status": "active",
+                    "expiry_date": new_expiry_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    "verify_token": None
+                }).eq("email", v_email).execute()
+                st.success(f"⚡ ACCESS GRANTED // Trial active for {trial_minutes} minute(s). Please log in below.")
+            else:
+                st.error("⛔ Invalid or expired verification link.")
+        else:
+            st.error("⛔ Invalid or expired verification link.")
+    except Exception:
+        st.error("⛔ Verification failed. Please try again.")
+    st.query_params.clear()
 # ==========================================
 # --- SECURE PAYMENT VERIFICATION ---
 # ==========================================
@@ -967,9 +999,12 @@ if not st.session_state['logged_in']:
                 else:
                     user = login_user_db(email, password)
                     if user:
-                        is_active = check_subscription_validity(user[0][0], user[0][4])
-                        st.session_state.update({'logged_in': True, 'user_email': user[0][0], 'expiry_date': user[0][4], 'user_status': 'active' if is_active else 'expired'})
-                        st.rerun()
+                        if user[0][2] == 'unverified':
+                            st.warning("📡 ACCESS PENDING // Check your inbox and click the verification link to launch your trial.")
+                        else:
+                            is_active = check_subscription_validity(user[0][0], user[0][4])
+                            st.session_state.update({'logged_in': True, 'user_email': user[0][0], 'expiry_date': user[0][4], 'user_status': 'active' if is_active else 'expired'})
+                            st.rerun()
                     else: st.error("Invalid Credentials")
                     
         with tab_signup:
