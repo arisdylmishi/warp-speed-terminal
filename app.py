@@ -1103,6 +1103,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         if st.button("LOGOUT"): st.session_state['logged_in'] = False; st.rerun()
         st.markdown("---")
         st.markdown("📧 **Support:**\nsupport@warpspeedterminal.com")
+        st.caption("⚠️ Not financial advice. For informational purposes only.")
 
     # --- MACRO BAR ---
     with st.container():
