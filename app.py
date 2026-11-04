@@ -1008,7 +1008,7 @@ if not st.session_state['logged_in']:
         except: st.info("[App Risk Preview]")
     # ----------------------------------------
 
-        st.markdown("<p style='text-align: center; color: #444; font-size: 0.75rem; max-width: 700px; margin: 15px auto 0;'>⚠️ Not financial advice. All data, scores, and verdicts shown are for informational purposes only and do not constitute investment advice or a recommendation to buy or sell any security. Trading involves risk, including loss of principal. Do your own research and consult a licensed financial advisor before making investment decisions.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #444; font-size: 0.75rem; max-width: 700px; margin: 15px auto 0;'>⚠️ Not financial advice. All data, scores, and verdicts shown are for informational purposes only and do not constitute investment advice or a recommendation to buy or sell any security. Trading involves risk, including loss of principal. Do your own research and consult a licensed financial advisor before making investment decisions.</p>", unsafe_allow_html=True)
 
 # ==========================================
 # --- 6. VIEW: PAYWALL (REDESIGNED) ---
