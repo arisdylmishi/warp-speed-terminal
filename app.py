@@ -904,6 +904,7 @@ if not st.session_state['logged_in']:
     st.markdown("""
         <div style='text-align: center; padding: 50px 20px;'>
             <h1 style='color: #00FF41; font-size: 60px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0,255,65,0.8);'>WARP SPEED TERMINAL</h1>
+            <p style='color: #444; font-size: 0.8rem; letter-spacing: 3px; margin-top: -5px;'>EST. 2025</p>
             <p style='font-size: 24px; color: #00d4ff; letter-spacing: 2px;'>UNLEASH THE DATA</p>
         </div>
     """, unsafe_allow_html=True)
