@@ -37,7 +37,6 @@ st.set_page_config(
 # --- THEME INJECTION ---
 st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500;700&display=swap');
 
         /* GLOBAL VARS */
         :root {
@@ -53,12 +52,12 @@ st.markdown("""
         .stApp {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Fira Code', monospace;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
         }
 
         /* FONT FIX */
         .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, .stButton, .stTextInput, label, .stTable {
-            font-family: 'Fira Code', monospace !important;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
         }
 
         /* SCANLINE OVERLAY */
@@ -162,7 +161,7 @@ st.markdown("""
             background-color: #050505 !important;
             border-collapse: collapse !important;
             width: 100%;
-            font-family: 'Fira Code', monospace !important;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
         }
         th {
             background-color: #111 !important;
@@ -203,7 +202,7 @@ st.markdown("""
         .plan-price {
             font-size: 2.5rem;
             color: var(--secondary);
-            font-family: 'Fira Code', monospace;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
             font-weight: bold;
             text-shadow: 0 0 10px var(--secondary);
             margin: 20px 0;
@@ -250,6 +249,77 @@ def stripe_link(plan_key):
     email = st.session_state.get('user_email', '')
     separator = "&" if "?" in base else "?"
     return f"{base}{separator}client_reference_id={quote(email)}"
+
+PRIVACY_POLICY_TEXT = """
+**Last updated: October 2026**
+
+Warp Speed Terminal ("we", "us", "the Service") respects your privacy. This policy explains what data we collect, why, and what rights you have over it.
+
+**1. What We Collect**
+- Account data: your email address and a securely hashed password (we never store your plain-text password).
+- Subscription data: your subscription status, trial usage, and expiry date.
+- Payment data: we do not collect or store your card details. Payments are processed entirely by Stripe, and we only receive confirmation that a payment succeeded, plus the email you used at checkout.
+
+**2. Why We Collect It**
+- To create and secure your account.
+- To grant and track trial and subscription access.
+- To send essential account emails (e.g. email verification).
+- To provide customer support if you contact us.
+
+**3. Who We Share It With**
+We use the following third-party services to operate the Service: Supabase (database hosting), Stripe (payment processing), Resend (transactional email), Finnhub / Yahoo Finance (market data), and Railway (app hosting). We do not sell your data, and we do not use it for advertising.
+
+**4. Cookies**
+The Service uses only strictly necessary session cookies required to keep you logged in. We do not use tracking, analytics, or advertising cookies.
+
+**5. How Long We Keep Your Data**
+We retain your account data for as long as your account is active. If you ask us to delete your account, we will delete your personal data within a reasonable time, except where legally required to retain certain records.
+
+**6. Your Rights**
+You may request a copy of your data, request correction, or request deletion at any time by emailing support@warpspeedterminal.com. EU/EEA users may also lodge a complaint with their local data protection authority.
+
+**7. Children**
+The Service is not directed at, and is not intended for use by, anyone under 18.
+
+**8. Contact**
+support@warpspeedterminal.com
+"""
+
+TERMS_OF_SERVICE_TEXT = """
+**Last updated: October 2026**
+
+By creating an account or using Warp Speed Terminal, you agree to these Terms.
+
+**1. Eligibility**
+You must be at least 18 years old to use the Service or hold a paid subscription.
+
+**2. Not Financial Advice**
+All data, scores, signals, and verdicts shown are generated algorithmically for informational purposes only and do not constitute financial, investment, or trading advice. Trading involves risk, including loss of principal. Always do your own research and consult a licensed financial advisor.
+
+**3. Accuracy of Data**
+The Service aggregates data from third-party sources. We do not guarantee any data, score, or signal is complete, accurate, or up to date. The Service is provided "as is."
+
+**4. Free Trial**
+New accounts may be granted a limited free trial, restricted in duration and number of scans. We may change or discontinue it at any time.
+
+**5. Subscriptions & Billing**
+Paid subscriptions are billed via Stripe on a recurring basis. By subscribing, you authorize recurring charges until you cancel.
+
+**6. Refunds**
+General policy: refunds are issued at our discretion — contact support@warpspeedterminal.com. EU/EEA customers have a statutory 14-day cancellation right; by confirming immediate access at signup, you acknowledge this right may end once the Service has been fully performed (e.g. your trial or subscription access has been used).
+
+**7. Acceptable Use**
+You agree not to circumvent trial limits, scrape or resell data from the Service, or use it unlawfully. We may suspend accounts that violate these terms.
+
+**8. Limitation of Liability**
+To the maximum extent permitted by law, we are not liable for trading or financial losses arising from your use of the Service.
+
+**9. Governing Law**
+These Terms are governed by the laws of Greece, except where mandatory consumer protection laws of your own country apply.
+
+**10. Contact**
+support@warpspeedterminal.com
+"""
 
 def safe_float(val):
     """Titanium Shield: Forces strings/mixed data to float to prevent app crash"""
@@ -927,7 +997,21 @@ def check_subscription_validity(email, current_expiry_str):
             return False
         return True
     except: return False
-
+def check_and_consume_trial_scan(email):
+    if email == "admin": return True
+    if not supabase: return True
+    try:
+        res = supabase.table("users").select("is_trial, trial_scans_used").eq("email", email).execute()
+        if not res.data: return True
+        row = res.data[0]
+        if not row.get("is_trial"): return True
+        used = row.get("trial_scans_used") or 0
+        if used >= 1:
+            return False
+        supabase.table("users").update({"trial_scans_used": used + 1}).eq("email", email).execute()
+        return True
+    except Exception:
+        return True
 # ==========================================
 # --- 4. SESSION & AUTH FLOW ---
 # ==========================================
@@ -952,7 +1036,9 @@ if "verify" in st.query_params:
                     "verified": True,
                     "status": "active",
                     "expiry_date": new_expiry_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "verify_token": None
+                    "verify_token": None,
+                    "is_trial": True,
+                    "trial_scans_used": 0
                 }).eq("email", v_email).execute()
                 st.success(f"⚡ ACCESS GRANTED // Trial active for {trial_minutes} minute(s). Please log in below.")
             else:
@@ -1010,9 +1096,14 @@ if not st.session_state['logged_in']:
         with tab_signup:
             new_email = st.text_input("New Email", key="s_email")
             new_pass = st.text_input("New Password", type='password', key="s_pass")
+            agree_terms = st.checkbox("I am 18+ and agree to the Terms of Service and Privacy Policy. I understand that by requesting immediate access, I may lose my EU 14-day cancellation right once the Service has been used.", key="s_agree")
             if st.button("CREATE ACCOUNT"):
-                if add_user(new_email, new_pass): st.success("📡 TRANSMISSION SENT // Check your inbox to verify access and launch your trial.")
-                else: st.error("Email exists.")
+                if not agree_terms:
+                    st.warning("⚠️ You must agree to the Terms before creating an account.")
+                elif add_user(new_email, new_pass):
+                    st.success("📡 TRANSMISSION SENT // Check your inbox to verify access and launch your trial.")
+                else:
+                    st.error("Email exists.")
 
     with c2:
         st.video("https://youtu.be/ql1suvTu_ak")
@@ -1083,6 +1174,14 @@ if not st.session_state['logged_in']:
 
     st.markdown("<p style='text-align: center; color: #444; font-size: 0.75rem; max-width: 700px; margin: 15px auto 0;'>⚠️ Not financial advice. All data, scores, and verdicts shown are for informational purposes only and do not constitute investment advice or a recommendation to buy or sell any security. Trading involves risk, including loss of principal. Do your own research and consult a licensed financial advisor before making investment decisions.</p>", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    pc1, pc2 = st.columns(2)
+    with pc1:
+        with st.expander("🔒 Privacy Policy"):
+            st.markdown(PRIVACY_POLICY_TEXT)
+    with pc2:
+        with st.expander("📜 Terms of Service"):
+            st.markdown(TERMS_OF_SERVICE_TEXT)
 # ==========================================
 # --- 6. VIEW: PAYWALL (REDESIGNED) ---
 # ==========================================
@@ -1210,13 +1309,16 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with c3: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
     if run_scan:
-        ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
-        if ticks:
-            st.session_state['data'] = scan_market_safe(ticks, period)
-            if not st.session_state['data']:
-                st.warning("No valid data found. If this persists, the data feed is temporarily blocked.")
+        if not check_and_consume_trial_scan(st.session_state['user_email']):
+            st.warning("⚡ TRIAL SCAN USED // Your free trial includes 1 scan. Upgrade below to run more.")
         else:
-            st.warning("Please enter a symbol.")
+            ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
+            if ticks:
+                st.session_state['data'] = scan_market_safe(ticks, period)
+                if not st.session_state['data']:
+                    st.warning("No valid data found. If this persists, the data feed is temporarily blocked.")
+            else:
+                st.warning("Please enter a symbol.")
 
     if 'data' in st.session_state and st.session_state['data']:
         # 1. TABLE
