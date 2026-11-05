@@ -1311,7 +1311,7 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with c2: period = st.selectbox("TIMEFRAME", ["1y", "1mo", "3mo", "6mo", "2y", "5y"])
         with c3: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
-   if run_scan:
+    if run_scan:
         if not check_and_consume_trial_scan(st.session_state['user_email']):
             st.session_state['user_status'] = 'expired'
             st.warning("⚡ TRIAL SCAN USED // Redirecting to upgrade options...")
