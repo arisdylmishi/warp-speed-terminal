@@ -1096,10 +1096,13 @@ if not st.session_state['logged_in']:
         with tab_signup:
             new_email = st.text_input("New Email", key="s_email")
             new_pass = st.text_input("New Password", type='password', key="s_pass")
+            confirm_pass = st.text_input("Confirm Password", type='password', key="s_pass_confirm")
             agree_terms = st.checkbox("I am 18+ and agree to the Terms of Service and Privacy Policy. I understand that by requesting immediate access, I may lose my EU 14-day cancellation right once the Service has been used.", key="s_agree")
             if st.button("CREATE ACCOUNT"):
                 if not agree_terms:
                     st.warning("⚠️ You must agree to the Terms before creating an account.")
+                elif new_pass != confirm_pass:
+                    st.error("⛔ Passwords do not match.")
                 elif add_user(new_email, new_pass):
                     st.success("📡 TRANSMISSION SENT // Check your inbox to verify access and launch your trial.")
                 else:
@@ -1308,9 +1311,12 @@ elif st.session_state['logged_in'] and st.session_state['user_status'] == 'activ
         with c2: period = st.selectbox("TIMEFRAME", ["1y", "1mo", "3mo", "6mo", "2y", "5y"])
         with c3: run_scan = st.form_submit_button("INITIATE SCAN 🔎", type="primary")
 
-    if run_scan:
+   if run_scan:
         if not check_and_consume_trial_scan(st.session_state['user_email']):
-            st.warning("⚡ TRIAL SCAN USED // Your free trial includes 1 scan. Upgrade below to run more.")
+            st.session_state['user_status'] = 'expired'
+            st.warning("⚡ TRIAL SCAN USED // Redirecting to upgrade options...")
+            time.sleep(1)
+            st.rerun()
         else:
             ticks = [t.strip().upper() for t in query.replace(",", " ").split() if t.strip()]
             if ticks:
