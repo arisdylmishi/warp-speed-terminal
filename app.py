@@ -1190,90 +1190,84 @@ if not st.session_state['logged_in']:
 # ==========================================
 elif st.session_state['logged_in'] and st.session_state['user_status'] != 'active':
     st.markdown(f"""
-        <div style="display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; margin-bottom:36px;">
-            <div style="width:44px; height:44px; border:1px solid #00ff41; display:flex; align-items:center; justify-content:center; margin-bottom:6px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff41" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-            </div>
-            <h1 style="margin:0; font-size:26px; letter-spacing:3px; color:#00ff41; font-weight:600;">ACCESS RESTRICTED</h1>
-            <p style="margin:0; color:#888; font-size:14px; max-width:480px; line-height:1.6;">Institutional-grade market data, AI analysis, and insider signals — unlocked with an active terminal license.</p>
-        </div>
-
-        <div style="border:1px solid rgba(0,255,65,0.28); background:#070707;">
-            <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid rgba(0,255,65,0.28);">
-                <div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">TIER</div>
-                <div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">RATE</div>
-                <div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">BILLING</div>
-                <div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">DISCOUNT</div>
-                <div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px;">ACTION</div>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
-                    MONTHLY
-                </div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€25<span style="color:#555;">/mo</span></div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Monthly</div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#555;">—</div>
-                <div style="padding:14px 20px;">
-                    <a href="{stripe_link('1M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
-                    QUARTERLY
-                </div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€23<span style="color:#555;">/mo</span></div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Every 3 months</div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00ff41;">SAVE €24/yr</div>
-                <div style="padding:14px 20px;">
-                    <a href="{stripe_link('3M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><path d="M3 12a9 9 0 1 1 3 6.7"></path><path d="M3 17v-5h5"></path></svg>
-                    SEMI-ANNUAL
-                </div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€20<span style="color:#555;">/mo</span></div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Every 6 months</div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00ff41;">SAVE €60/yr</div>
-                <div style="padding:14px 20px;">
-                    <a href="{stripe_link('6M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; background:linear-gradient(90deg, rgba(0,212,255,0.06), rgba(0,212,255,0.02));">
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff; display:flex; align-items:center; gap:10px; font-weight:600;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8"><path d="M12 2l2.4 6.8L21 10l-5.2 4.4L17 21l-5-3.6L7 21l1.2-6.6L3 10l6.6-1.2z"></path></svg>
-                    YEARLY
-                </div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff; font-weight:600;">€15<span style="color:#557;">/mo</span></div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Annual</div>
-                <div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">40% OFF</div>
-                <div style="padding:14px 20px;">
-                    <a href="{stripe_link('1Y')}" target="_blank" style="display:inline-block; background:#00d4ff; color:#000; padding:9px 18px; text-decoration:none; font-size:12px; letter-spacing:1px; font-weight:700;">ACTIVATE &gt;</a>
-                </div>
-            </div>
-        </div>
-
-        <div style="display:flex; justify-content:center; gap:36px; color:#555; font-size:12px; letter-spacing:0.5px; flex-wrap:wrap; margin-top:30px;">
-            <div style="display:flex; align-items:center; gap:7px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-                SECURE PAYMENT VIA STRIPE
-            </div>
-            <div style="display:flex; align-items:center; gap:7px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M9 12l2 2 4-4"></path></svg>
-                CANCEL ANYTIME
-            </div>
-            <div style="display:flex; align-items:center; gap:7px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l2.5 2.5"></path></svg>
-                14-DAY EU CANCELLATION RIGHT
-            </div>
-        </div>
+<div style="display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; margin-bottom:36px;">
+<div style="width:44px; height:44px; border:1px solid #00ff41; display:flex; align-items:center; justify-content:center; margin-bottom:6px;">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff41" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+</div>
+<h1 style="margin:0; font-size:26px; letter-spacing:3px; color:#00ff41; font-weight:600;">ACCESS RESTRICTED</h1>
+<p style="margin:0; color:#888; font-size:14px; max-width:480px; line-height:1.6;">Institutional-grade market data, AI analysis, and insider signals — unlocked with an active terminal license.</p>
+</div>
+<div style="border:1px solid rgba(0,255,65,0.28); background:#070707;">
+<div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid rgba(0,255,65,0.28);">
+<div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">TIER</div>
+<div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">RATE</div>
+<div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">BILLING</div>
+<div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px; border-right:1px solid rgba(0,255,65,0.28);">DISCOUNT</div>
+<div style="padding:16px 20px; color:#00ff41; font-size:11px; letter-spacing:2px;">ACTION</div>
+</div>
+<div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+MONTHLY
+</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€25<span style="color:#555;">/mo</span></div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Monthly</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#555;">—</div>
+<div style="padding:14px 20px;">
+<a href="{stripe_link('1M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
+</div>
+</div>
+<div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+QUARTERLY
+</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€23<span style="color:#555;">/mo</span></div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Every 3 months</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00ff41;">SAVE €24/yr</div>
+<div style="padding:14px 20px;">
+<a href="{stripe_link('3M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
+</div>
+</div>
+<div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; border-bottom:1px solid #1a1a1a;">
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; display:flex; align-items:center; gap:10px; color:#e0e0e0;">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><path d="M3 12a9 9 0 1 1 3 6.7"></path><path d="M3 17v-5h5"></path></svg>
+SEMI-ANNUAL
+</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">€20<span style="color:#555;">/mo</span></div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Every 6 months</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00ff41;">SAVE €60/yr</div>
+<div style="padding:14px 20px;">
+<a href="{stripe_link('6M')}" target="_blank" style="display:inline-block; border:1px solid #00ff41; color:#00ff41; padding:8px 18px; text-decoration:none; font-size:12px; letter-spacing:1px;">ACTIVATE &gt;</a>
+</div>
+</div>
+<div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1.1fr 1.3fr; background:linear-gradient(90deg, rgba(0,212,255,0.06), rgba(0,212,255,0.02));">
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff; display:flex; align-items:center; gap:10px; font-weight:600;">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8"><path d="M12 2l2.4 6.8L21 10l-5.2 4.4L17 21l-5-3.6L7 21l1.2-6.6L3 10l6.6-1.2z"></path></svg>
+YEARLY
+</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff; font-weight:600;">€15<span style="color:#557;">/mo</span></div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#888;">Annual</div>
+<div style="padding:18px 20px; border-right:1px solid #1a1a1a; color:#00d4ff;">40% OFF</div>
+<div style="padding:14px 20px;">
+<a href="{stripe_link('1Y')}" target="_blank" style="display:inline-block; background:#00d4ff; color:#000; padding:9px 18px; text-decoration:none; font-size:12px; letter-spacing:1px; font-weight:700;">ACTIVATE &gt;</a>
+</div>
+</div>
+</div>
+<div style="display:flex; justify-content:center; gap:36px; color:#555; font-size:12px; letter-spacing:0.5px; flex-wrap:wrap; margin-top:30px;">
+<div style="display:flex; align-items:center; gap:7px;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+SECURE PAYMENT VIA STRIPE
+</div>
+<div style="display:flex; align-items:center; gap:7px;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M9 12l2 2 4-4"></path></svg>
+CANCEL ANYTIME
+</div>
+<div style="display:flex; align-items:center; gap:7px;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l2.5 2.5"></path></svg>
+14-DAY EU CANCELLATION RIGHT
+</div>
+</div>
     """, unsafe_allow_html=True)
     st.divider()
     if st.button("Logout"): st.session_state['logged_in'] = False; st.rerun()
